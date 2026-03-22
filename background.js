@@ -190,10 +190,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     persistState();
     sendResponse({ ok: true });
   } else if (message.type === "dismiss") {
-    // User acknowledged the alert — reset everything
+    // User acknowledged the alert — reset the typing timer but clear
+    // the cooldown so the next loop can be detected fresh
     state.lastTypingTime = Date.now();
     state.tabSwitches = [];
-    state.notifiedAt = Date.now();
+    state.notifiedAt = 0;
     state.pausedForVideo = false;
     state.pausedAt = 0;
     state.videoTabId = null;
