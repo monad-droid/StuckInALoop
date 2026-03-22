@@ -190,13 +190,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true; // keep channel open for async sendResponse
 });
 
-// Periodic check via alarms
-chrome.alarms.create("loopCheck", { periodInMinutes: 0.5 });
+// Periodic check — alarms have a 1min minimum in MV3, so supplement
+// with a setInterval for more responsive detection
+chrome.alarms.create("loopCheck", { periodInMinutes: 1 });
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "loopCheck" && state.enabled) {
     checkForLoop();
   }
 });
+// Check every 15 seconds for faster response
+setInterval(() => {
+  if (state.enabled) checkForLoop();
+}, 15000);
 
 function unPauseVideo() {
   if (!state.pausedForVideo) return;
@@ -248,15 +253,34 @@ function triggerAlert() {
     type: "basic",
     iconUrl: "icons/icon128.png",
     title: "You're stuck in a loop!",
-    message: `You've been switching tabs for ${minutes} minutes without typing anything. Take a breath — what did you actually want to do?`,
+    message: `You've been ${minutes} minutes without typing anything. Take a breath — what did you actually want to do?`,
     priority: 2,
     requireInteraction: true,
   });
 
-  // Also inject an overlay into the active tab
+  // Try to inject overlay into the active tab
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (tabs[0]) {
-      chrome.tabs.sendMessage(tabs[0].id, { type: "showOverlay", minutes });
-    }
+    if (!tabs[0]) return;
+    const tab = tabs[0];
+
+    // Can't inject into chrome://, brave://, edge://, about: pages
+    if (!tab.url || !tab.url.startsWith("http")) return;
+
+    // Try sending to existing content script first
+    chrome.tabs.sendMessage(tab.id, { type: "showOverlay", minutes }, (response) => {
+      if (chrome.runtime.lastError) {
+        // Content script not loaded on this tab — inject it dynamically
+        chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ["content.js"],
+        }, () => {
+          if (chrome.runtime.lastError) return;
+          // Now send the overlay message to the freshly injected script
+          setTimeout(() => {
+            chrome.tabs.sendMessage(tab.id, { type: "showOverlay", minutes });
+          }, 100);
+        });
+      }
+    });
   });
 }
