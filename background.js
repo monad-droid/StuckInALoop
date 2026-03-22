@@ -48,12 +48,6 @@ chrome.storage.local.get(
       state.tabSwitches = result.tabSwitches;
     }
     state.ready = true;
-    console.log("[StuckInALoop] SW started, restored state:", {
-      lastTypingTimeAgoSec: Math.round((Date.now() - state.lastTypingTime) / 1000),
-      notifiedAtAgoSec: Math.round((Date.now() - state.notifiedAt) / 1000),
-      tabSwitches: state.tabSwitches.length,
-      enabled: state.enabled,
-    });
     // Run an immediate check now that state is loaded
     checkForLoop();
   }
@@ -274,19 +268,7 @@ function checkForLoop() {
 
   const now = Date.now();
   const NOTIFY_COOLDOWN_MS = 5 * 60 * 1000; // don't re-notify within 5min
-  const inLoop = isInLoop();
-  const cooldownOk = now - state.notifiedAt > NOTIFY_COOLDOWN_MS;
-
-  console.log("[StuckInALoop] check:", {
-    inLoop,
-    cooldownOk,
-    timeSinceTypingSec: Math.round((now - state.lastTypingTime) / 1000),
-    thresholdSec: config.loopThresholdMin * 60,
-    notifiedAgoSec: Math.round((now - state.notifiedAt) / 1000),
-  });
-
-  if (inLoop && cooldownOk) {
-    console.log("[StuckInALoop] TRIGGERING ALERT");
+  if (isInLoop() && now - state.notifiedAt > NOTIFY_COOLDOWN_MS) {
     triggerAlert();
   }
 }
