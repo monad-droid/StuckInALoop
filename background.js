@@ -220,10 +220,10 @@ function isInLoop() {
   const thresholdMs = config.loopThresholdMin * 60 * 1000;
   pruneOldSwitches();
 
-  return (
-    timeSinceTyping >= thresholdMs &&
-    state.tabSwitches.length >= config.minTabSwitches
-  );
+  // Trigger if typing threshold is exceeded — either you've been
+  // tab-switching (looping) or zoned out on one page (drifting).
+  // Both are unproductive.
+  return timeSinceTyping >= thresholdMs;
 }
 
 function checkForLoop() {
