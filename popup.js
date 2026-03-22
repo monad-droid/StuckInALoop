@@ -78,7 +78,7 @@ function update() {
     setToggleState(clickResetsToggle, response.clickResetsTimer);
 
     if (!response.enabled) {
-      statusEl.textContent = "Paused";
+      statusEl.textContent = "Off";
       statusEl.className = "state-value";
       statusSubtitle.textContent = "Detection disabled";
       typingTimeEl.textContent = "--:--";
