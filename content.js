@@ -69,13 +69,10 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
     <div id="stuck-loop-ambient-1"></div>
     <div id="stuck-loop-ambient-2"></div>
     <div id="stuck-in-loop-card">
-      <div id="stuck-loop-corner-tl"><span class="stuck-loop-cmd-icon">⌘</span></div>
-      <div id="stuck-loop-corner-br"><span class="stuck-loop-cmd-icon">⌘</span></div>
       <div id="stuck-loop-icon-wrap">
         <div id="stuck-loop-icon-glow"></div>
         <div id="stuck-loop-icon-box">
           <span id="stuck-loop-infinity">⌘</span>
-          <div id="stuck-loop-break"></div>
         </div>
       </div>
       <h1 id="stuck-loop-headline">What did you actually sit down to do?</h1>
@@ -157,28 +154,6 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
       text-align: center;
     }
 
-    #stuck-loop-corner-tl {
-      position: absolute;
-      top: 32px;
-      left: 32px;
-    }
-    #stuck-loop-corner-tl .stuck-loop-cmd-icon {
-      font-size: 36px;
-      color: #e1e3e4;
-      font-family: 'Manrope', system-ui, sans-serif;
-    }
-
-    #stuck-loop-corner-br {
-      position: absolute;
-      bottom: 32px;
-      right: 32px;
-    }
-    #stuck-loop-corner-br .stuck-loop-cmd-icon {
-      font-size: 36px;
-      color: #e1e3e4;
-      font-family: 'Manrope', system-ui, sans-serif;
-    }
-
     #stuck-loop-icon-wrap {
       position: relative;
       margin-bottom: 40px;
@@ -207,22 +182,6 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
     #stuck-loop-infinity {
       font-size: 48px;
       font-family: 'Manrope', system-ui, sans-serif;
-    }
-
-    #stuck-loop-break {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      pointer-events: none;
-    }
-    #stuck-loop-break::after {
-      content: '';
-      height: 48px;
-      width: 4px;
-      background: #fff;
-      transform: rotate(45deg) translateX(8px);
     }
 
     #stuck-loop-headline {
