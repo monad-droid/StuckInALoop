@@ -30,6 +30,7 @@ All configurable from the popup:
 |---------|---------|-------------|
 | Time without typing | 15 min | How long without typing before triggering |
 | Min tab switches | 5 | Minimum tab switches in the window to count as looping |
+| Snooze duration | 5 min | How long the snooze button suppresses alerts (must be less than the typing threshold) |
 | URL bar typing resets timer | On | Searching or navigating via the address bar counts as engagement |
 | Pause when YouTube is playing | On | Pauses the timer while a video is audibly playing |
 
@@ -53,7 +54,7 @@ When triggered, you get:
 
 - A full-screen dark overlay with a prompt to refocus
 - A persistent browser notification
-- Two options: **"Got it, refocusing"** (resets everything) or **"Snooze 5 min"** (dismisses the overlay, re-triggers in 5 minutes if still looping)
+- Two options: **"Got it, refocusing"** (resets everything and can alert again immediately after threshold) or **"Snooze X min"** (resets stats, suppresses alerts for the configured snooze duration)
 
 ## Permissions
 
@@ -62,6 +63,7 @@ When triggered, you get:
 | `tabs` | Track tab switches and detect YouTube video tabs |
 | `activeTab` | Send overlay to the active tab |
 | `notifications` | Show browser notifications |
-| `storage` | Persist settings |
+| `storage` | Persist settings and timer state across service worker restarts |
+| `scripting` | Inject overlay into the active tab |
 | `alarms` | Periodic loop checks |
 | `webNavigation` | Detect URL bar navigation |
