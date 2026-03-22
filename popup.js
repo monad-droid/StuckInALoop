@@ -172,7 +172,7 @@ function saveConfig() {
   const loopThresholdMin = Math.max(1, Math.min(60, parseInt(thresholdInput.value) || 15));
   const minTabSwitches = Math.max(1, Math.min(MAX_SWITCHES, currentMinSwitches));
   const maxSnooze = Math.max(1, loopThresholdMin - 1);
-  const snoozeDurationMin = Math.max(1, Math.min(maxSnooze, parseInt(snoozeDurationInput.value) || 5));
+  const snoozeDurationMin = Math.max(0, Math.min(maxSnooze, parseInt(snoozeDurationInput.value) || 0));
   snoozeDurationInput.max = maxSnooze;
   chrome.runtime.sendMessage({
     type: "setConfig",

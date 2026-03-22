@@ -300,7 +300,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       chrome.storage.local.set({ loopThresholdMin: config.loopThresholdMin });
       // Clamp snooze to stay below new threshold
       if (config.snoozeDurationMin >= config.loopThresholdMin) {
-        config.snoozeDurationMin = Math.max(1, config.loopThresholdMin - 1);
+        config.snoozeDurationMin = Math.max(0, config.loopThresholdMin - 1);
         chrome.storage.local.set({ snoozeDurationMin: config.snoozeDurationMin });
       }
     }
