@@ -44,7 +44,9 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-// Clicking links counts as activity
+// Clicking links counts as activity.
+// We track both real <a> clicks and SPA navigations (pushState / hash changes)
+// since many apps like Gmail use divs with JS handlers instead of real links.
 let clickTimeout = null;
 document.addEventListener("click", (e) => {
   if (!e.target.closest("a")) return;
@@ -53,6 +55,28 @@ document.addEventListener("click", (e) => {
     clickTimeout = setTimeout(() => { clickTimeout = null; }, 2000);
   }
 });
+
+// Detect SPA navigations (pushState/replaceState/hashchange) as link activity
+let lastUrl = location.href;
+function checkUrlChange() {
+  if (location.href !== lastUrl) {
+    lastUrl = location.href;
+    safeSendMessage({ type: "click" });
+  }
+}
+// Patch history methods to detect pushState/replaceState
+const origPushState = history.pushState;
+const origReplaceState = history.replaceState;
+history.pushState = function () {
+  origPushState.apply(this, arguments);
+  checkUrlChange();
+};
+history.replaceState = function () {
+  origReplaceState.apply(this, arguments);
+  checkUrlChange();
+};
+window.addEventListener("popstate", checkUrlChange);
+window.addEventListener("hashchange", checkUrlChange);
 
 // YouTube video detection — YouTube is an SPA so we need to watch for URL changes
 if (location.hostname === "www.youtube.com" || location.hostname === "youtube.com") {
