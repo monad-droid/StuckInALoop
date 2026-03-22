@@ -200,6 +200,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     state.videoTabId = null;
     persistState();
     sendResponse({ ok: true });
+  } else if (message.type === "snooze") {
+    // User snoozed — reset stats but keep 5min cooldown
+    state.lastTypingTime = Date.now();
+    state.tabSwitches = [];
+    state.notifiedAt = Date.now();
+    state.pausedForVideo = false;
+    state.pausedAt = 0;
+    state.videoTabId = null;
+    persistState();
+    sendResponse({ ok: true });
   } else if (message.type === "setConfig") {
     if (message.loopThresholdMin !== undefined) {
       config.loopThresholdMin = message.loopThresholdMin;

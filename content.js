@@ -165,7 +165,8 @@ function showLoopOverlay(minutes) {
   });
 
   document.getElementById("stuck-in-loop-snooze").addEventListener("click", () => {
-    // Snooze just closes the overlay — the 5min cooldown in background handles the rest
+    // Snooze resets the timer too, but keeps the 5min cooldown
+    chrome.runtime.sendMessage({ type: "snooze" }).catch(() => {});
     overlay.remove();
     style.remove();
   });
