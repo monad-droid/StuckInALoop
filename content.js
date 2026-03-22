@@ -59,7 +59,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 function showLoopOverlay(minutes, snoozeDurationMin) {
-  snoozeDurationMin = snoozeDurationMin || 5;
+  snoozeDurationMin = snoozeDurationMin ?? 5;
   // Don't stack overlays
   if (document.getElementById("stuck-in-loop-overlay")) return;
 
