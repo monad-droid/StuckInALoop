@@ -318,6 +318,20 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
+// Use chrome.idle to detect when the user returns from sleep/lock/idle.
+// When the system transitions back to "active", reset the timer so we
+// don't falsely alert for time spent sleeping.
+chrome.idle.setDetectionInterval(60); // report idle after 60s of inactivity
+chrome.idle.onStateChanged.addListener((newState) => {
+  if (newState === "active" && state.enabled) {
+    state.lastTypingTime = Date.now();
+    state.tabSwitches = [];
+    state.notifiedAt = 0;
+    persistState();
+    scheduleLoopCheck();
+  }
+});
+
 function unPauseVideo() {
   if (!state.pausedForVideo) return;
   // Credit the time spent watching — shift lastTypingTime forward

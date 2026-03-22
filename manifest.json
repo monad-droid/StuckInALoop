@@ -10,7 +10,8 @@
     "storage",
     "alarms",
     "webNavigation",
-    "scripting"
+    "scripting",
+    "idle"
   ],
   "background": {
     "service_worker": "background.js"
