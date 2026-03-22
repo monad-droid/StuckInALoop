@@ -152,6 +152,59 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
       flex-direction: column;
       align-items: center;
       text-align: center;
+      overflow: hidden;
+    }
+
+    #stuck-in-loop-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 32px;
+      padding: 2px;
+      background: conic-gradient(
+        from var(--beam-angle, 0deg),
+        transparent 0deg,
+        transparent 300deg,
+        rgba(67, 85, 185, 0.15) 330deg,
+        rgba(67, 85, 185, 0.6) 350deg,
+        rgba(133, 150, 255, 1) 360deg
+      );
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask-composite: exclude;
+      animation: stuck-beam-rotate 3s linear infinite;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    #stuck-in-loop-card::after {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      border-radius: 40px;
+      background: conic-gradient(
+        from var(--beam-angle, 0deg),
+        transparent 0deg,
+        transparent 320deg,
+        rgba(133, 150, 255, 0.3) 350deg,
+        rgba(133, 150, 255, 0.15) 360deg
+      );
+      filter: blur(12px);
+      animation: stuck-beam-rotate 3s linear infinite;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    @property --beam-angle {
+      syntax: '<angle>';
+      initial-value: 0deg;
+      inherits: false;
+    }
+
+    @keyframes stuck-beam-rotate {
+      from { --beam-angle: 0deg; }
+      to { --beam-angle: 360deg; }
     }
 
     #stuck-loop-icon-wrap {
