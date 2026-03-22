@@ -33,9 +33,10 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-// Clicks (navigating subsections, links, buttons) count as activity
+// Clicking links counts as activity
 let clickTimeout = null;
-document.addEventListener("click", () => {
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("a")) return;
   if (!clickTimeout) {
     chrome.runtime.sendMessage({ type: "click" }).catch(() => {});
     clickTimeout = setTimeout(() => { clickTimeout = null; }, 2000);
