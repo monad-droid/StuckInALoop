@@ -390,6 +390,25 @@ function scheduleLoopCheck() {
 chrome.alarms.create("loopCheck", { periodInMinutes: 0.5 });
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "loopCheck" && state.enabled) {
+    // Validate that a "paused for video" state is still accurate
+    if (state.pausedForVideo && state.videoTabId != null) {
+      chrome.tabs.get(state.videoTabId, (tab) => {
+        if (chrome.runtime.lastError || !tab) {
+          // Tab no longer exists
+          unPauseVideo();
+          state.videoTabId = null;
+          return;
+        }
+        const url = tab.url || "";
+        const isYtVideo = url.includes("youtube.com/watch") || url.includes("youtube.com/shorts/");
+        if (!isYtVideo || !tab.audible) {
+          // Tab is no longer on a video page or no longer audible
+          unPauseVideo();
+          state.videoTabId = null;
+        }
+      });
+      return;
+    }
     checkForLoop();
   }
 });
