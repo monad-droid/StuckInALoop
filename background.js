@@ -143,9 +143,10 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 // Treat navigations as intentional engagement (resets typing timer)
 chrome.webNavigation.onCommitted.addListener((details) => {
   if (!state.enabled || !config.navResetsTimer) return;
-  // Count top-level navigations from links, address bar, etc.
-  // Exclude auto_subframe/manual_subframe (iframes, ads) and reload
-  const validTypes = ["link", "typed", "generated", "form_submit"];
+  // Count top-level navigations from address bar, etc.
+  // Exclude auto_subframe/manual_subframe (iframes, ads) and reload.
+  // "link" transitions are handled separately by the clickResetsTimer toggle.
+  const validTypes = ["typed", "generated", "form_submit"];
   if (details.frameId === 0 && validTypes.includes(details.transitionType)) {
     state.lastTypingTime = Date.now();
     persistState();
