@@ -1,225 +1,487 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+
     body {
-      width: 320px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #1a1a2e;
-      color: #fff;
-      padding: 20px;
+      width: 380px;
+      min-height: 560px;
+      overflow-x: hidden;
+      background: #f8f9fa;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #191c1d;
+      -webkit-font-smoothing: antialiased;
     }
-    .header {
+
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: #edeeef; }
+    ::-webkit-scrollbar-thumb { background: #c6c5d4; border-radius: 10px; }
+
+    /* Header */
+    .app-header {
+      background: #fff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 20px;
+      height: 64px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .app-header .left { display: flex; align-items: center; gap: 12px; }
+    .app-header .left .icon { color: #1a237e; }
+    .app-header h1 {
+      font-family: 'Manrope', sans-serif;
+      font-weight: 800;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+      color: #1a237e;
+    }
+    .app-header .right { display: flex; align-items: center; gap: 16px; }
+    .status-dot-wrapper {
+      position: relative;
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 20px;
+      justify-content: center;
+      cursor: pointer;
     }
-    .header h1 {
-      font-size: 16px;
-      font-weight: 700;
+    .status-dot-ping {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      opacity: 0.75;
+      animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
     }
-    .status-card {
-      background: #16213e;
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 16px;
+    .status-dot-ping.inactive { background: #94a3b8; animation: none; }
+    .status-dot {
+      position: relative;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
     }
-    .status-label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: #888;
-      margin-bottom: 6px;
+    .status-dot.inactive { background: #94a3b8; }
+    @keyframes ping {
+      75%, 100% { transform: scale(2); opacity: 0; }
     }
-    .status-value {
-      font-size: 22px;
-      font-weight: 700;
-    }
-    .status-value.safe { color: #4ecca3; }
-    .status-value.warning { color: #f0a500; }
-    .status-value.danger { color: #e94560; }
-    .stats {
+    .header-divider { background: #e2e8f0; height: 1px; width: 100%; }
+
+    /* Main */
+    main { padding: 20px; padding-bottom: 96px; }
+    main > * + * { margin-top: 32px; }
+
+    /* Status Grid */
+    .status-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-bottom: 16px;
+      grid-template-columns: 3fr 2fr;
+      gap: 16px;
     }
-    .stat {
-      background: #16213e;
-      border-radius: 10px;
-      padding: 12px;
+    .state-card {
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
     }
-    .stat-label {
+    .state-label {
       font-size: 10px;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: #888;
+      letter-spacing: 0.1em;
+      font-weight: 600;
+      color: #767683;
       margin-bottom: 4px;
     }
-    .stat-value {
-      font-size: 18px;
-      font-weight: 600;
+    .state-value {
+      font-family: 'Manrope', sans-serif;
+      font-weight: 700;
+      font-size: 20px;
+      color: #000666;
+      line-height: 1.2;
     }
-    .settings {
-      margin-bottom: 16px;
+    .state-value.warning { color: #d97706; }
+    .state-value.danger { color: #dc2626; }
+    .state-subtitle {
+      margin-top: 16px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #4355b9;
     }
-    .settings-title {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: #888;
-      margin-bottom: 10px;
-    }
-    .setting-row {
+    .timer-card {
+      background: linear-gradient(135deg, #000666 0%, #4355b9 100%);
+      padding: 20px;
+      border-radius: 12px;
+      color: #fff;
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
       align-items: center;
-      background: #16213e;
-      border-radius: 10px;
-      padding: 10px 14px;
+      justify-content: center;
+      text-align: center;
+    }
+    .timer-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 700;
+      opacity: 0.8;
       margin-bottom: 8px;
     }
-    .setting-row label {
-      font-size: 13px;
-      color: #ccc;
+    .timer-value {
+      font-family: 'Manrope', sans-serif;
+      font-weight: 800;
+      font-size: 24px;
+      letter-spacing: -0.05em;
     }
-    .setting-row input[type="number"] {
-      width: 60px;
-      background: #0f3460;
-      border: 1px solid #333;
-      border-radius: 6px;
-      color: #fff;
-      font-size: 14px;
+
+    /* Configuration Section */
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    .section-header .icon { color: #000666; transform: scale(0.9); }
+    .section-header h3 {
+      font-family: 'Manrope', sans-serif;
       font-weight: 600;
-      padding: 4px 8px;
-      text-align: center;
-      outline: none;
+      font-size: 14px;
+      letter-spacing: 0.02em;
     }
-    .setting-row input[type="number"]:focus {
-      border-color: #e94560;
+
+    /* Slider Controls */
+    .config-controls > * + * { margin-top: 16px; }
+    .config-card {
+      background: #f3f4f5;
+      padding: 16px;
+      border-radius: 12px;
+      border-bottom: 2px solid #d9dadb;
     }
-    .toggle-row {
+    .config-card-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: #16213e;
-      border-radius: 10px;
-      padding: 12px 16px;
+      margin-bottom: 12px;
     }
-    .toggle-row label {
-      font-size: 13px;
-      color: #ccc;
+    .config-card-header label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #454652;
     }
-    .toggle {
-      position: relative;
-      width: 44px;
-      height: 24px;
+    .config-badge {
+      font-size: 12px;
+      font-weight: 700;
+      color: #000666;
+      padding: 4px 8px;
+      background: #e0e0ff;
+      border-radius: 8px;
     }
-    .toggle input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-    .toggle .slider {
-      position: absolute;
-      inset: 0;
-      background: #333;
-      border-radius: 24px;
+    input[type="range"] {
+      width: 100%;
+      height: 6px;
+      background: #e1e3e4;
+      border-radius: 9999px;
+      appearance: none;
+      -webkit-appearance: none;
       cursor: pointer;
-      transition: 0.2s;
+      outline: none;
     }
-    .toggle .slider::before {
-      content: "";
-      position: absolute;
-      width: 18px;
-      height: 18px;
-      left: 3px;
-      bottom: 3px;
-      background: #fff;
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
-      transition: 0.2s;
+      background: #000666;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
     }
-    .toggle input:checked + .slider {
-      background: #e94560;
+
+    /* Stepper Control */
+    .stepper {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
     }
-    .toggle input:checked + .slider::before {
-      transform: translateX(20px);
+    .stepper-btn {
+      background: #e1e3e4;
+      height: 32px;
+      width: 32px;
+      border-radius: 8px;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.1s;
+      color: #191c1d;
     }
-    .toggle-sm {
-      width: 38px;
+    .stepper-btn:active { transform: scale(0.95); }
+    .stepper-track {
+      flex: 1;
+      height: 4px;
+      background: #e1e3e4;
+      border-radius: 9999px;
+      position: relative;
+      overflow: hidden;
+    }
+    .stepper-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      background: #000666;
+      border-radius: 9999px;
+      transition: width 0.2s;
+    }
+
+    /* Toggle Controls */
+    .toggles { padding-top: 8px; }
+    .toggles > * + * { margin-top: 12px; }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px;
+    }
+    .toggle-row span {
+      font-size: 12px;
+      font-weight: 500;
+      color: #191c1d;
+    }
+    .toggle-btn {
+      width: 40px;
       height: 20px;
+      border-radius: 9999px;
+      border: none;
+      position: relative;
+      display: flex;
+      align-items: center;
+      padding: 0 4px;
+      cursor: pointer;
+      transition: background 0.2s;
     }
-    .toggle-sm .slider::before {
+    .toggle-btn.on { background: #000666; }
+    .toggle-btn.off { background: #c6c5d4; }
+    .toggle-knob {
       width: 14px;
       height: 14px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+      transition: margin-left 0.2s;
     }
-    .toggle-sm input:checked + .slider::before {
-      transform: translateX(18px);
+    .toggle-btn.on .toggle-knob { margin-left: auto; }
+    .toggle-btn.off .toggle-knob { margin-left: 0; }
+
+    /* Session Stats */
+    .stats-card {
+      background: rgba(225, 227, 228, 0.5);
+      backdrop-filter: blur(12px);
+      padding: 20px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .stats-grid .stat-label {
+      font-size: 10px;
+      color: #767683;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+    .stats-grid .stat-value {
+      font-size: 18px;
+      font-family: 'Manrope', sans-serif;
+      font-weight: 700;
+      color: #191c1d;
+    }
+
+    /* Bottom Nav */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      z-index: 50;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 12px 16px;
+      background: rgba(255,255,255,0.8);
+      backdrop-filter: blur(20px);
+      box-shadow: 0 -12px 32px -4px rgba(25,28,29,0.06);
+      border-radius: 16px 16px 0 0;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 16px;
+      color: #64748b;
+      text-decoration: none;
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+    .nav-item:active { transform: scale(0.98); }
+    .nav-item .material-symbols-outlined { margin-bottom: 2px; }
+    .nav-item span:last-child {
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+    .nav-item.active {
+      background: #eef2ff;
+      color: #1a237e;
+      border-radius: 12px;
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    <span style="font-size: 24px;">&#x1F300;</span>
-    <h1>Stuck In A Loop</h1>
-  </div>
-
-  <div class="status-card">
-    <div class="status-label">Status</div>
-    <div class="status-value safe" id="status">Focused</div>
-  </div>
-
-  <div class="stats">
-    <div class="stat">
-      <div class="stat-label">Since last typing</div>
-      <div class="stat-value" id="typing-time">0m</div>
+  <!-- Header -->
+  <header class="app-header">
+    <div class="left">
+      <span class="material-symbols-outlined icon">all_inclusive</span>
+      <h1>Stuck In A Loop</h1>
     </div>
-    <div class="stat">
-      <div class="stat-label">Tab switches</div>
-      <div class="stat-value" id="switch-count">0</div>
-    </div>
-  </div>
-
-  <div class="settings">
-    <div class="settings-title">Settings</div>
-    <div class="setting-row">
-      <label>Time without typing (min)</label>
-      <input type="number" id="threshold-min" min="1" max="120" value="15">
-    </div>
-    <div class="setting-row">
-      <label>Min tab switches</label>
-      <input type="number" id="min-switches" min="1" max="50" value="5">
-    </div>
-    <div class="setting-row">
-      <label>Snooze duration (min)</label>
-      <input type="number" id="snooze-duration" min="1" max="119" value="5">
-    </div>
-    <div class="setting-row">
-      <label>URL bar typing resets timer</label>
-      <div class="toggle toggle-sm">
-        <input type="checkbox" id="nav-resets-toggle" checked>
-        <span class="slider"></span>
+    <div class="right">
+      <div class="status-dot-wrapper" id="enabled-toggle" title="Toggle detection">
+        <span class="status-dot-ping" id="status-ping"></span>
+        <span class="status-dot" id="status-dot"></span>
       </div>
+      <span class="material-symbols-outlined" id="sensor-icon" style="color: #64748b; cursor: pointer;" title="Toggle detection">sensors</span>
     </div>
-    <div class="setting-row">
-      <label>Pause when YouTube is playing</label>
-      <div class="toggle toggle-sm">
-        <input type="checkbox" id="yt-pause-toggle" checked>
-        <span class="slider"></span>
-      </div>
-    </div>
-  </div>
+  </header>
+  <div class="header-divider"></div>
 
-  <div class="toggle-row">
-    <label>Detection enabled</label>
-    <div class="toggle">
-      <input type="checkbox" id="enabled-toggle" checked>
-      <span class="slider"></span>
+  <main>
+    <!-- Status Cards -->
+    <section class="status-grid">
+      <div class="state-card">
+        <div>
+          <p class="state-label">Current State</p>
+          <h2 class="state-value" id="status">Flow Active</h2>
+        </div>
+        <p class="state-subtitle" id="status-subtitle">No loop detected</p>
+      </div>
+      <div class="timer-card">
+        <span class="timer-label">Timer</span>
+        <span class="timer-value" id="typing-time">0:00</span>
+      </div>
+    </section>
+
+    <!-- Configuration -->
+    <section>
+      <div class="section-header">
+        <span class="material-symbols-outlined icon">tune</span>
+        <h3>Configuration</h3>
+      </div>
+      <div class="config-controls">
+        <!-- Time without typing -->
+        <div class="config-card">
+          <div class="config-card-header">
+            <label>Time without typing</label>
+            <span class="config-badge" id="threshold-badge">15 min</span>
+          </div>
+          <input type="range" id="threshold-min" min="1" max="60" value="15">
+        </div>
+        <!-- Min tab switches -->
+        <div class="config-card">
+          <div class="config-card-header">
+            <label>Min tab switches</label>
+            <span class="config-badge" id="switches-badge">5</span>
+          </div>
+          <div class="stepper">
+            <button class="stepper-btn" id="switches-dec">
+              <span class="material-symbols-outlined" style="font-size: 18px;">remove</span>
+            </button>
+            <div class="stepper-track">
+              <div class="stepper-fill" id="switches-fill" style="width: 25%;"></div>
+            </div>
+            <button class="stepper-btn" id="switches-inc">
+              <span class="material-symbols-outlined" style="font-size: 18px;">add</span>
+            </button>
+          </div>
+        </div>
+        <!-- Snooze duration -->
+        <div class="config-card">
+          <div class="config-card-header">
+            <label>Snooze duration</label>
+            <span class="config-badge" id="snooze-badge">5 min</span>
+          </div>
+          <input type="range" id="snooze-duration" min="1" max="14" value="5">
+        </div>
+      </div>
+      <!-- Toggles -->
+      <div class="toggles">
+        <div class="toggle-row">
+          <span>URL bar typing resets timer</span>
+          <button class="toggle-btn on" id="nav-resets-toggle">
+            <div class="toggle-knob"></div>
+          </button>
+        </div>
+        <div class="toggle-row">
+          <span>Pause when YouTube is playing</span>
+          <button class="toggle-btn on" id="yt-pause-toggle">
+            <div class="toggle-knob"></div>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Session Stats -->
+    <section class="stats-card">
+      <div class="section-header">
+        <span class="material-symbols-outlined icon">analytics</span>
+        <h3>Session Stats</h3>
+      </div>
+      <div class="stats-grid">
+        <div>
+          <p class="stat-label">Tab switches</p>
+          <p class="stat-value" id="switch-count">0</p>
+        </div>
+        <div>
+          <p class="stat-label">Last typing</p>
+          <p class="stat-value" id="last-typing">Just now</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Bottom Nav -->
+  <nav class="bottom-nav">
+    <div class="nav-item">
+      <span class="material-symbols-outlined">timer</span>
+      <span>Focus</span>
     </div>
-  </div>
+    <div class="nav-item">
+      <span class="material-symbols-outlined">bar_chart</span>
+      <span>Stats</span>
+    </div>
+    <div class="nav-item active">
+      <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">settings</span>
+      <span>Settings</span>
+    </div>
+  </nav>
 
   <script src="popup.js"></script>
 </body>

@@ -1,82 +1,173 @@
 const statusEl = document.getElementById("status");
+const statusSubtitle = document.getElementById("status-subtitle");
 const typingTimeEl = document.getElementById("typing-time");
+const lastTypingEl = document.getElementById("last-typing");
 const switchCountEl = document.getElementById("switch-count");
 const enabledToggle = document.getElementById("enabled-toggle");
+const sensorIcon = document.getElementById("sensor-icon");
+const statusDot = document.getElementById("status-dot");
+const statusPing = document.getElementById("status-ping");
 const thresholdInput = document.getElementById("threshold-min");
-const minSwitchesInput = document.getElementById("min-switches");
+const thresholdBadge = document.getElementById("threshold-badge");
+const switchesBadge = document.getElementById("switches-badge");
+const switchesFill = document.getElementById("switches-fill");
+const switchesDec = document.getElementById("switches-dec");
+const switchesInc = document.getElementById("switches-inc");
 const snoozeDurationInput = document.getElementById("snooze-duration");
+const snoozeBadge = document.getElementById("snooze-badge");
 const navResetsToggle = document.getElementById("nav-resets-toggle");
 const ytPauseToggle = document.getElementById("yt-pause-toggle");
 
-function formatTime(ms) {
+let currentEnabled = true;
+let currentMinSwitches = 5;
+const MAX_SWITCHES = 20;
+
+function formatTimer(ms) {
   const totalSec = Math.floor(ms / 1000);
-  if (totalSec < 60) return `${totalSec}s`;
   const min = Math.floor(totalSec / 60);
   const sec = totalSec % 60;
-  return sec > 0 ? `${min}m ${sec}s` : `${min}m`;
+  return `${min}:${sec.toString().padStart(2, "0")}`;
+}
+
+function formatTimeAgo(ms) {
+  const totalSec = Math.floor(ms / 1000);
+  if (totalSec < 5) return "Just now";
+  if (totalSec < 60) return `${totalSec}s ago`;
+  const min = Math.floor(totalSec / 60);
+  if (min === 1) return "1 min ago";
+  return `${min} min ago`;
+}
+
+function updateSwitchesFill() {
+  const pct = Math.min(100, (currentMinSwitches / MAX_SWITCHES) * 100);
+  switchesFill.style.width = pct + "%";
+  switchesBadge.textContent = currentMinSwitches;
+}
+
+function setToggleState(btn, on) {
+  btn.classList.toggle("on", on);
+  btn.classList.toggle("off", !on);
+}
+
+function setEnabledUI(enabled) {
+  statusDot.classList.toggle("inactive", !enabled);
+  statusPing.classList.toggle("inactive", !enabled);
 }
 
 function update() {
   chrome.runtime.sendMessage({ type: "getState" }, (response) => {
     if (!response) return;
 
-    enabledToggle.checked = response.enabled;
+    currentEnabled = response.enabled;
+    currentMinSwitches = response.minTabSwitches;
+    setEnabledUI(response.enabled);
 
-    // Sync config inputs (only when not focused, to avoid fighting the user)
+    // Sync config inputs (only when not actively dragging)
     if (document.activeElement !== thresholdInput) {
       thresholdInput.value = response.loopThresholdMin;
+      thresholdBadge.textContent = response.loopThresholdMin + " min";
     }
-    if (document.activeElement !== minSwitchesInput) {
-      minSwitchesInput.value = response.minTabSwitches;
-    }
+    updateSwitchesFill();
     if (document.activeElement !== snoozeDurationInput) {
       snoozeDurationInput.value = response.snoozeDurationMin;
-      snoozeDurationInput.max = response.loopThresholdMin - 1;
+      snoozeDurationInput.max = Math.max(1, response.loopThresholdMin - 1);
+      snoozeBadge.textContent = response.snoozeDurationMin + " min";
     }
-    navResetsToggle.checked = response.navResetsTimer;
-    ytPauseToggle.checked = response.ytPausesTimer;
+    setToggleState(navResetsToggle, response.navResetsTimer);
+    setToggleState(ytPauseToggle, response.ytPausesTimer);
 
     if (!response.enabled) {
       statusEl.textContent = "Paused";
-      statusEl.className = "status-value";
-      typingTimeEl.textContent = "--";
+      statusEl.className = "state-value";
+      statusSubtitle.textContent = "Detection disabled";
+      typingTimeEl.textContent = "--:--";
       switchCountEl.textContent = "--";
+      lastTypingEl.textContent = "--";
       return;
     }
 
-    typingTimeEl.textContent = formatTime(response.timeSinceTyping);
+    typingTimeEl.textContent = formatTimer(response.timeSinceTyping);
     switchCountEl.textContent = response.tabSwitchCount;
+    lastTypingEl.textContent = formatTimeAgo(response.timeSinceTyping);
 
     const warningThreshold = response.loopThresholdMin * 0.66 * 60 * 1000;
 
     if (response.pausedForVideo) {
-      statusEl.textContent = "Watching video";
-      statusEl.className = "status-value safe";
+      statusEl.textContent = "Watching Video";
+      statusEl.className = "state-value";
+      statusSubtitle.textContent = "Timer paused for playback";
     } else if (response.isInLoop) {
-      statusEl.textContent = "Stuck in a loop!";
-      statusEl.className = "status-value danger";
+      statusEl.textContent = "Stuck in a Loop!";
+      statusEl.className = "state-value danger";
+      statusSubtitle.textContent = "Time to refocus";
     } else if (response.timeSinceTyping > warningThreshold) {
       statusEl.textContent = "Drifting...";
-      statusEl.className = "status-value warning";
+      statusEl.className = "state-value warning";
+      statusSubtitle.textContent = "Getting close to threshold";
     } else {
-      statusEl.textContent = "Focused";
-      statusEl.className = "status-value safe";
+      statusEl.textContent = "Flow Active";
+      statusEl.className = "state-value";
+      statusSubtitle.textContent = "No loop detected";
     }
   });
 }
 
-enabledToggle.addEventListener("change", () => {
-  chrome.runtime.sendMessage({
-    type: "setEnabled",
-    enabled: enabledToggle.checked,
-  });
+// Enable/Disable toggle (click dot or sensor icon)
+function toggleEnabled() {
+  currentEnabled = !currentEnabled;
+  chrome.runtime.sendMessage({ type: "setEnabled", enabled: currentEnabled });
+  setEnabledUI(currentEnabled);
   setTimeout(update, 100);
+}
+enabledToggle.addEventListener("click", toggleEnabled);
+sensorIcon.addEventListener("click", toggleEnabled);
+
+// Threshold slider
+thresholdInput.addEventListener("input", () => {
+  thresholdBadge.textContent = thresholdInput.value + " min";
+});
+thresholdInput.addEventListener("change", saveConfig);
+
+// Min tab switches stepper
+switchesDec.addEventListener("click", () => {
+  if (currentMinSwitches > 1) {
+    currentMinSwitches--;
+    updateSwitchesFill();
+    saveConfig();
+  }
+});
+switchesInc.addEventListener("click", () => {
+  if (currentMinSwitches < MAX_SWITCHES) {
+    currentMinSwitches++;
+    updateSwitchesFill();
+    saveConfig();
+  }
+});
+
+// Snooze slider
+snoozeDurationInput.addEventListener("input", () => {
+  snoozeBadge.textContent = snoozeDurationInput.value + " min";
+});
+snoozeDurationInput.addEventListener("change", saveConfig);
+
+// Toggle buttons
+navResetsToggle.addEventListener("click", () => {
+  const isOn = navResetsToggle.classList.contains("on");
+  setToggleState(navResetsToggle, !isOn);
+  chrome.runtime.sendMessage({ type: "setConfig", navResetsTimer: !isOn });
+});
+ytPauseToggle.addEventListener("click", () => {
+  const isOn = ytPauseToggle.classList.contains("on");
+  setToggleState(ytPauseToggle, !isOn);
+  chrome.runtime.sendMessage({ type: "setConfig", ytPausesTimer: !isOn });
 });
 
 function saveConfig() {
-  const loopThresholdMin = Math.max(1, Math.min(120, parseInt(thresholdInput.value) || 15));
-  const minTabSwitches = Math.max(1, Math.min(50, parseInt(minSwitchesInput.value) || 5));
-  const snoozeDurationMin = Math.max(1, Math.min(loopThresholdMin - 1, parseInt(snoozeDurationInput.value) || 5));
+  const loopThresholdMin = Math.max(1, Math.min(60, parseInt(thresholdInput.value) || 15));
+  const minTabSwitches = Math.max(1, Math.min(MAX_SWITCHES, currentMinSwitches));
+  const maxSnooze = Math.max(1, loopThresholdMin - 1);
+  const snoozeDurationMin = Math.max(1, Math.min(maxSnooze, parseInt(snoozeDurationInput.value) || 5));
+  snoozeDurationInput.max = maxSnooze;
   chrome.runtime.sendMessage({
     type: "setConfig",
     loopThresholdMin,
@@ -84,22 +175,6 @@ function saveConfig() {
     snoozeDurationMin,
   });
 }
-
-thresholdInput.addEventListener("change", saveConfig);
-minSwitchesInput.addEventListener("change", saveConfig);
-snoozeDurationInput.addEventListener("change", saveConfig);
-navResetsToggle.addEventListener("change", () => {
-  chrome.runtime.sendMessage({
-    type: "setConfig",
-    navResetsTimer: navResetsToggle.checked,
-  });
-});
-ytPauseToggle.addEventListener("change", () => {
-  chrome.runtime.sendMessage({
-    type: "setConfig",
-    ytPausesTimer: ytPauseToggle.checked,
-  });
-});
 
 update();
 setInterval(update, 1000);

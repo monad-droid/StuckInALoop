@@ -54,7 +54,7 @@ if (location.hostname === "www.youtube.com" || location.hostname === "youtube.co
 // Listen for overlay trigger from background
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "showOverlay") {
-    showLoopOverlay(message.minutes);
+    showLoopOverlay(message.minutes, message.snoozeDurationMin);
   }
 });
 
@@ -66,98 +66,238 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
   const overlay = document.createElement("div");
   overlay.id = "stuck-in-loop-overlay";
   overlay.innerHTML = `
-    <div id="stuck-in-loop-box">
-      <div id="stuck-in-loop-icon">&#x1F300;</div>
-      <h1>You're stuck in a loop</h1>
-      <p>You've been switching tabs and scrolling for <strong id="stuck-in-loop-minutes"></strong> without typing anything.</p>
-      <p class="stuck-sub">What did you actually sit down to do?</p>
-      <button id="stuck-in-loop-dismiss">Got it, refocusing</button>
-      <button id="stuck-in-loop-snooze">Snooze ${snoozeDurationMin} min</button>
+    <div id="stuck-loop-ambient-1"></div>
+    <div id="stuck-loop-ambient-2"></div>
+    <div id="stuck-in-loop-card">
+      <div id="stuck-loop-corner-tl"><span class="stuck-loop-icon-font">sensors</span></div>
+      <div id="stuck-loop-corner-br"><span class="stuck-loop-icon-font">timer</span></div>
+      <div id="stuck-loop-icon-wrap">
+        <div id="stuck-loop-icon-glow"></div>
+        <div id="stuck-loop-icon-box">
+          <span class="stuck-loop-icon-font" id="stuck-loop-infinity">all_inclusive</span>
+          <div id="stuck-loop-break"></div>
+        </div>
+      </div>
+      <h1 id="stuck-loop-headline">What did you actually sit down to do?</h1>
+      <p id="stuck-loop-body">It looks like you've been looping for a while. Let's find your way back.</p>
+      <div id="stuck-loop-actions">
+        <button id="stuck-in-loop-dismiss">Got it, refocusing</button>
+        <button id="stuck-in-loop-snooze">Snooze ${snoozeDurationMin} min</button>
+      </div>
     </div>
   `;
 
   const style = document.createElement("style");
+  style.id = "stuck-in-loop-style";
   style.textContent = `
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+    .stuck-loop-icon-font {
+      font-family: 'Material Symbols Outlined';
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      -webkit-font-smoothing: antialiased;
+    }
+
     #stuck-in-loop-overlay {
       position: fixed;
       inset: 0;
       z-index: 2147483647;
-      background: rgba(0, 0, 0, 0.85);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 20px;
+      background: rgba(0, 6, 102, 0.4);
+      backdrop-filter: blur(40px);
+      -webkit-backdrop-filter: blur(40px);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       animation: stuck-fade-in 0.3s ease-out;
     }
+
     @keyframes stuck-fade-in {
       from { opacity: 0; }
       to { opacity: 1; }
     }
-    #stuck-in-loop-box {
-      background: #1a1a2e;
-      border: 2px solid #e94560;
-      border-radius: 16px;
-      padding: 48px;
-      max-width: 480px;
+
+    #stuck-loop-ambient-1 {
+      position: absolute;
+      top: -10%;
+      left: -10%;
+      width: 384px;
+      height: 384px;
+      background: rgba(26, 35, 126, 0.2);
+      border-radius: 50%;
+      filter: blur(120px);
+      pointer-events: none;
+    }
+
+    #stuck-loop-ambient-2 {
+      position: absolute;
+      bottom: -10%;
+      right: -10%;
+      width: 384px;
+      height: 384px;
+      background: rgba(133, 150, 255, 0.2);
+      border-radius: 50%;
+      filter: blur(120px);
+      pointer-events: none;
+    }
+
+    #stuck-in-loop-card {
+      position: relative;
+      width: 100%;
+      max-width: 560px;
+      background: #fff;
+      border-radius: 32px;
+      padding: 64px;
+      box-shadow: 0 24px 48px -12px rgba(0, 6, 102, 0.15);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       text-align: center;
-      color: #fff;
-      box-shadow: 0 0 60px rgba(233, 69, 96, 0.3);
     }
-    #stuck-in-loop-icon {
-      font-size: 64px;
-      margin-bottom: 16px;
-      animation: stuck-spin 3s linear infinite;
+
+    #stuck-loop-corner-tl {
+      position: absolute;
+      top: 32px;
+      left: 32px;
     }
-    @keyframes stuck-spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
+    #stuck-loop-corner-tl .stuck-loop-icon-font {
+      font-size: 36px;
+      color: #e1e3e4;
     }
-    #stuck-in-loop-box h1 {
-      margin: 0 0 12px;
-      font-size: 28px;
-      color: #e94560;
-      font-weight: 700;
+
+    #stuck-loop-corner-br {
+      position: absolute;
+      bottom: 32px;
+      right: 32px;
     }
-    #stuck-in-loop-box p {
-      margin: 0 0 8px;
-      font-size: 16px;
-      line-height: 1.5;
-      color: #ccc;
+    #stuck-loop-corner-br .stuck-loop-icon-font {
+      font-size: 36px;
+      color: #e1e3e4;
     }
-    #stuck-in-loop-box .stuck-sub {
+
+    #stuck-loop-icon-wrap {
+      position: relative;
+      margin-bottom: 40px;
+    }
+
+    #stuck-loop-icon-glow {
+      position: absolute;
+      inset: -16px;
+      background: rgba(189, 194, 255, 0.3);
+      border-radius: 50%;
+      filter: blur(32px);
+    }
+
+    #stuck-loop-icon-box {
+      position: relative;
+      width: 80px;
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 16px;
+      background: #e7e8e9;
+      color: #000666;
+    }
+
+    #stuck-loop-infinity {
+      font-size: 48px;
+      transform: translateX(4px);
+    }
+
+    #stuck-loop-break {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    #stuck-loop-break::after {
+      content: '';
+      height: 48px;
+      width: 4px;
+      background: #fff;
+      transform: rotate(45deg) translateX(8px);
+    }
+
+    #stuck-loop-headline {
+      font-family: 'Manrope', sans-serif;
+      font-weight: 800;
+      font-size: 36px;
+      color: #191c1d;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      margin: 0 0 24px;
+    }
+
+    #stuck-loop-body {
+      font-family: 'Inter', sans-serif;
       font-size: 18px;
-      color: #fff;
-      margin: 16px 0 24px;
-      font-style: italic;
+      color: #454652;
+      line-height: 1.5;
+      max-width: 384px;
+      margin: 0 0 48px;
     }
-    #stuck-in-loop-box button {
-      padding: 12px 28px;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      margin: 0 8px;
-      transition: transform 0.1s;
+
+    #stuck-loop-actions {
+      width: 100%;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
     }
-    #stuck-in-loop-box button:hover {
-      transform: scale(1.05);
-    }
+
     #stuck-in-loop-dismiss {
-      background: #e94560;
+      padding: 16px 32px;
+      background: linear-gradient(135deg, #000666 0%, #4355b9 100%);
       color: #fff;
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 8px 24px -4px rgba(0, 6, 102, 0.3);
+      transition: all 0.2s;
     }
+    #stuck-in-loop-dismiss:hover {
+      box-shadow: 0 12px 32px -4px rgba(0, 6, 102, 0.4);
+    }
+    #stuck-in-loop-dismiss:active {
+      transform: scale(0.95);
+    }
+
     #stuck-in-loop-snooze {
-      background: transparent;
-      color: #888;
-      border: 1px solid #444 !important;
+      padding: 16px 32px;
+      background: #e7e8e9;
+      color: #11278e;
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    #stuck-in-loop-snooze:hover {
+      background: #e1e3e4;
+    }
+    #stuck-in-loop-snooze:active {
+      transform: scale(0.95);
     }
   `;
 
   document.documentElement.appendChild(style);
   document.documentElement.appendChild(overlay);
-
-  document.getElementById("stuck-in-loop-minutes").textContent = `${minutes} minutes`;
 
   document.getElementById("stuck-in-loop-dismiss").addEventListener("click", () => {
     chrome.runtime.sendMessage({ type: "dismiss" }).catch(() => {});
@@ -166,7 +306,6 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
   });
 
   document.getElementById("stuck-in-loop-snooze").addEventListener("click", () => {
-    // Snooze resets the timer too, but keeps the 5min cooldown
     chrome.runtime.sendMessage({ type: "snooze" }).catch(() => {});
     overlay.remove();
     style.remove();
