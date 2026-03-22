@@ -69,12 +69,12 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
     <div id="stuck-loop-ambient-1"></div>
     <div id="stuck-loop-ambient-2"></div>
     <div id="stuck-in-loop-card">
-      <div id="stuck-loop-corner-tl"><span class="stuck-loop-icon-font">sensors</span></div>
-      <div id="stuck-loop-corner-br"><span class="stuck-loop-icon-font">timer</span></div>
+      <div id="stuck-loop-corner-tl"><span class="stuck-loop-cmd-icon">⌘</span></div>
+      <div id="stuck-loop-corner-br"><span class="stuck-loop-cmd-icon">⌘</span></div>
       <div id="stuck-loop-icon-wrap">
         <div id="stuck-loop-icon-glow"></div>
         <div id="stuck-loop-icon-box">
-          <span class="stuck-loop-icon-font" id="stuck-loop-infinity">all_inclusive</span>
+          <span id="stuck-loop-infinity">⌘</span>
           <div id="stuck-loop-break"></div>
         </div>
       </div>
@@ -162,9 +162,10 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
       top: 32px;
       left: 32px;
     }
-    #stuck-loop-corner-tl .stuck-loop-icon-font {
+    #stuck-loop-corner-tl .stuck-loop-cmd-icon {
       font-size: 36px;
       color: #e1e3e4;
+      font-family: 'Manrope', system-ui, sans-serif;
     }
 
     #stuck-loop-corner-br {
@@ -172,9 +173,10 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
       bottom: 32px;
       right: 32px;
     }
-    #stuck-loop-corner-br .stuck-loop-icon-font {
+    #stuck-loop-corner-br .stuck-loop-cmd-icon {
       font-size: 36px;
       color: #e1e3e4;
+      font-family: 'Manrope', system-ui, sans-serif;
     }
 
     #stuck-loop-icon-wrap {
@@ -204,7 +206,7 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
 
     #stuck-loop-infinity {
       font-size: 48px;
-      transform: translateX(4px);
+      font-family: 'Manrope', system-ui, sans-serif;
     }
 
     #stuck-loop-break {
