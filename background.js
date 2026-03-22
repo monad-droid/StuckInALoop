@@ -42,6 +42,19 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
   if (!state.enabled) return;
   state.tabSwitches.push(Date.now());
   pruneOldSwitches();
+
+  // If paused for a YouTube video and user switched tabs, unpause
+  if (state.pausedForVideo) {
+    chrome.tabs.get(activeInfo.tabId, (tab) => {
+      if (chrome.runtime.lastError) return;
+      const url = tab.url || "";
+      const isYtVideo = url.includes("youtube.com/watch") || url.includes("youtube.com/shorts/");
+      if (!isYtVideo) {
+        unPauseVideo();
+      }
+    });
+  }
+
   checkForLoop();
 });
 
@@ -84,13 +97,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ ok: true });
   } else if (message.type === "ytLeft") {
     // User left the video page (navigated within YouTube)
-    if (state.pausedForVideo) {
-      // Credit the time spent watching — shift lastTypingTime forward
-      const pauseDuration = Date.now() - state.pausedAt;
-      state.lastTypingTime += pauseDuration;
-      state.pausedForVideo = false;
-      state.pausedAt = 0;
-    }
+    unPauseVideo();
     sendResponse({ ok: true });
   } else if (message.type === "getState") {
     const now = Date.now();
@@ -155,6 +162,15 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     checkForLoop();
   }
 });
+
+function unPauseVideo() {
+  if (!state.pausedForVideo) return;
+  // Credit the time spent watching — shift lastTypingTime forward
+  const pauseDuration = Date.now() - state.pausedAt;
+  state.lastTypingTime += pauseDuration;
+  state.pausedForVideo = false;
+  state.pausedAt = 0;
+}
 
 function pruneOldSwitches() {
   const windowMs = config.loopThresholdMin * 60 * 1000;
