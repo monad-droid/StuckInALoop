@@ -59,7 +59,7 @@ function showLoopOverlay(minutes) {
     <div id="stuck-in-loop-box">
       <div id="stuck-in-loop-icon">&#x1F300;</div>
       <h1>You're stuck in a loop</h1>
-      <p>You've been switching tabs and scrolling for <strong>${minutes} minutes</strong> without typing anything.</p>
+      <p>You've been switching tabs and scrolling for <strong id="stuck-in-loop-minutes"></strong> without typing anything.</p>
       <p class="stuck-sub">What did you actually sit down to do?</p>
       <button id="stuck-in-loop-dismiss">Got it, refocusing</button>
       <button id="stuck-in-loop-snooze">Snooze 5 min</button>
@@ -146,6 +146,8 @@ function showLoopOverlay(minutes) {
 
   document.documentElement.appendChild(style);
   document.documentElement.appendChild(overlay);
+
+  document.getElementById("stuck-in-loop-minutes").textContent = `${minutes} minutes`;
 
   document.getElementById("stuck-in-loop-dismiss").addEventListener("click", () => {
     chrome.runtime.sendMessage({ type: "dismiss" }).catch(() => {});

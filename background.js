@@ -40,8 +40,13 @@ chrome.storage.local.get(["enabled", "loopThresholdMin", "minTabSwitches", "navR
 // Track tab switches
 chrome.tabs.onActivated.addListener((activeInfo) => {
   if (!state.enabled) return;
-  state.tabSwitches.push(Date.now());
-  pruneOldSwitches();
+
+  // Don't count tab switches while paused for video — they shouldn't
+  // inflate the count for when the user unpauses
+  if (!state.pausedForVideo) {
+    state.tabSwitches.push(Date.now());
+    pruneOldSwitches();
+  }
 
   // Check if the newly active tab is a YouTube video
   chrome.tabs.get(activeInfo.tabId, (tab) => {
@@ -66,10 +71,29 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
 // Track window focus changes (switching between browser windows)
 chrome.windows.onFocusChanged.addListener((windowId) => {
   if (!state.enabled) return;
-  if (windowId !== chrome.windows.WINDOW_ID_NONE) {
-    state.tabSwitches.push(Date.now());
-    pruneOldSwitches();
+  if (windowId === chrome.windows.WINDOW_ID_NONE) {
+    // Browser lost focus entirely (switched to another app)
+    // If watching a video, keep paused — they might be alt-tabbing briefly
+    return;
   }
+
+  state.tabSwitches.push(Date.now());
+  pruneOldSwitches();
+
+  // Check if the active tab in the focused window is a YouTube video
+  chrome.tabs.query({ active: true, windowId }, (tabs) => {
+    if (chrome.runtime.lastError || !tabs[0]) return;
+    const url = tabs[0].url || "";
+    const isYtVideo = url.includes("youtube.com/watch") || url.includes("youtube.com/shorts/");
+
+    if (state.pausedForVideo && !isYtVideo) {
+      unPauseVideo();
+    } else if (!state.pausedForVideo && isYtVideo && config.ytPausesTimer) {
+      state.lastTypingTime = Date.now();
+      state.pausedForVideo = true;
+      state.pausedAt = Date.now();
+    }
+  });
 });
 
 // Treat URL bar navigation as intentional engagement (resets typing timer)
@@ -90,7 +114,13 @@ chrome.webNavigation.onCommitted.addListener((details) => {
 // Listen for typing reports from content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "typing") {
-    state.lastTypingTime = Date.now();
+    // If paused for video, update both so the frozen display stays at 0
+    if (state.pausedForVideo) {
+      state.lastTypingTime = Date.now();
+      state.pausedAt = Date.now();
+    } else {
+      state.lastTypingTime = Date.now();
+    }
     sendResponse({ ok: true });
   } else if (message.type === "ytVideo") {
     // User navigated to a YouTube video — reset timer and pause
@@ -131,12 +161,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       state.lastTypingTime = Date.now();
       state.tabSwitches = [];
     }
+    // Always clear video pause when toggling
+    state.pausedForVideo = false;
+    state.pausedAt = 0;
     sendResponse({ ok: true });
   } else if (message.type === "dismiss") {
-    // User acknowledged the alert — reset the timer
+    // User acknowledged the alert — reset everything
     state.lastTypingTime = Date.now();
     state.tabSwitches = [];
     state.notifiedAt = Date.now();
+    state.pausedForVideo = false;
+    state.pausedAt = 0;
     sendResponse({ ok: true });
   } else if (message.type === "setConfig") {
     if (message.loopThresholdMin !== undefined) {
