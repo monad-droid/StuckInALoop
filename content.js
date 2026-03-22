@@ -129,7 +129,7 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
           <span id="stuck-loop-infinity">⌘</span>
         </div>
       </div>
-      <h1 id="stuck-loop-headline">What did you actually sit down to do?</h1>
+      <h1 id="stuck-loop-headline">Is it time for a break?</h1>
       <p id="stuck-loop-body">It looks like you've been looping for a while. Let's find your way back.</p>
       <div id="stuck-loop-actions">
         <button id="stuck-in-loop-dismiss">Got it, refocusing</button>
