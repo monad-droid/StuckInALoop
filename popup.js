@@ -4,7 +4,6 @@ const typingTimeEl = document.getElementById("typing-time");
 const lastTypingEl = document.getElementById("last-typing");
 const switchCountEl = document.getElementById("switch-count");
 const enabledToggle = document.getElementById("enabled-toggle");
-const sensorIcon = document.getElementById("sensor-icon");
 const statusDot = document.getElementById("status-dot");
 const statusPing = document.getElementById("status-ping");
 const thresholdInput = document.getElementById("threshold-min");
@@ -120,7 +119,6 @@ function toggleEnabled() {
   setTimeout(update, 100);
 }
 enabledToggle.addEventListener("click", toggleEnabled);
-sensorIcon.addEventListener("click", toggleEnabled);
 
 // Threshold slider
 thresholdInput.addEventListener("input", () => {
