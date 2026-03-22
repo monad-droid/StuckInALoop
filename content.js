@@ -69,8 +69,6 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
     <div id="stuck-loop-ambient-1"></div>
     <div id="stuck-loop-ambient-2"></div>
     <div id="stuck-in-loop-card">
-      <div id="stuck-loop-border-glow"></div>
-      <div id="stuck-loop-border-beam"></div>
       <div id="stuck-loop-icon-wrap">
         <div id="stuck-loop-icon-glow"></div>
         <div id="stuck-loop-icon-box">
@@ -149,68 +147,27 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
       background: #fff;
       border-radius: 32px;
       padding: 64px;
-      box-shadow: 0 24px 48px -12px rgba(0, 6, 102, 0.15);
+      border: 1px solid rgba(67, 85, 185, 0.12);
+      box-shadow: 0 24px 48px -12px rgba(0, 6, 102, 0.15),
+                  0 0 0 0 rgba(133, 150, 255, 0);
       display: flex;
       flex-direction: column;
       align-items: center;
       text-align: center;
-      overflow: hidden;
+      animation: stuck-border-pulse 3s ease-in-out infinite;
     }
 
-    #stuck-loop-border-beam,
-    #stuck-loop-border-glow {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 150%;
-      height: 150%;
-      pointer-events: none;
-      animation: stuck-beam-spin 3s linear infinite;
-    }
-
-    #stuck-loop-border-beam {
-      z-index: 1;
-      background: conic-gradient(
-        from 0deg,
-        transparent 0deg,
-        transparent 300deg,
-        rgba(67, 85, 185, 0.15) 330deg,
-        rgba(67, 85, 185, 0.6) 350deg,
-        rgba(133, 150, 255, 1) 360deg
-      );
-    }
-
-    #stuck-loop-border-glow {
-      z-index: -1;
-      filter: blur(12px);
-      background: conic-gradient(
-        from 0deg,
-        transparent 0deg,
-        transparent 320deg,
-        rgba(133, 150, 255, 0.3) 350deg,
-        rgba(133, 150, 255, 0.15) 360deg
-      );
-    }
-
-    /* Mask the beam to only show as a border */
-    #stuck-in-loop-card::before {
-      content: '';
-      position: absolute;
-      inset: 2px;
-      background: #fff;
-      border-radius: 30px;
-      z-index: 1;
-    }
-
-    /* Ensure card content sits above the mask */
-    #stuck-in-loop-card > *:not(#stuck-loop-border-beam):not(#stuck-loop-border-glow) {
-      position: relative;
-      z-index: 2;
-    }
-
-    @keyframes stuck-beam-spin {
-      from { transform: translate(-50%, -50%) rotate(0deg); }
-      to { transform: translate(-50%, -50%) rotate(360deg); }
+    @keyframes stuck-border-pulse {
+      0%, 100% {
+        border-color: rgba(67, 85, 185, 0.08);
+        box-shadow: 0 24px 48px -12px rgba(0, 6, 102, 0.15),
+                    0 0 0 0 rgba(133, 150, 255, 0);
+      }
+      50% {
+        border-color: rgba(67, 85, 185, 0.25);
+        box-shadow: 0 24px 48px -12px rgba(0, 6, 102, 0.15),
+                    0 0 20px 0 rgba(133, 150, 255, 0.08);
+      }
     }
 
     #stuck-loop-icon-wrap {
