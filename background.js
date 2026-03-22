@@ -43,17 +43,22 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
   state.tabSwitches.push(Date.now());
   pruneOldSwitches();
 
-  // If paused for a YouTube video and user switched tabs, unpause
-  if (state.pausedForVideo) {
-    chrome.tabs.get(activeInfo.tabId, (tab) => {
-      if (chrome.runtime.lastError) return;
-      const url = tab.url || "";
-      const isYtVideo = url.includes("youtube.com/watch") || url.includes("youtube.com/shorts/");
-      if (!isYtVideo) {
-        unPauseVideo();
-      }
-    });
-  }
+  // Check if the newly active tab is a YouTube video
+  chrome.tabs.get(activeInfo.tabId, (tab) => {
+    if (chrome.runtime.lastError) return;
+    const url = tab.url || "";
+    const isYtVideo = url.includes("youtube.com/watch") || url.includes("youtube.com/shorts/");
+
+    if (state.pausedForVideo && !isYtVideo) {
+      // Left a video tab — unpause
+      unPauseVideo();
+    } else if (!state.pausedForVideo && isYtVideo && config.ytPausesTimer) {
+      // Returned to a video tab — reset and pause
+      state.lastTypingTime = Date.now();
+      state.pausedForVideo = true;
+      state.pausedAt = Date.now();
+    }
+  });
 
   checkForLoop();
 });
