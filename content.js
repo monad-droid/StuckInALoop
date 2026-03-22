@@ -177,10 +177,10 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
 
     #stuck-loop-icon-glow {
       position: absolute;
-      inset: -16px;
-      background: rgba(189, 194, 255, 0.3);
+      inset: -40px;
+      background: rgba(130, 140, 255, 0.55);
       border-radius: 50%;
-      filter: blur(32px);
+      filter: blur(44px);
     }
 
     #stuck-loop-icon-box {
