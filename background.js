@@ -136,17 +136,13 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   }
 });
 
-// Treat URL bar navigation as intentional engagement (resets typing timer)
+// Treat navigations as intentional engagement (resets typing timer)
 chrome.webNavigation.onCommitted.addListener((details) => {
   if (!state.enabled || !config.navResetsTimer) return;
-  // Only count top-level navigations initiated from the address bar
-  // transitionQualifiers includes "from_address_bar" for any omnibox usage
-  // (searches, typed URLs, autocomplete selections)
-  if (
-    details.frameId === 0 &&
-    details.transitionQualifiers &&
-    details.transitionQualifiers.includes("from_address_bar")
-  ) {
+  // Count top-level navigations from links, address bar, etc.
+  // Exclude auto_subframe/manual_subframe (iframes, ads) and reload
+  const validTypes = ["link", "typed", "generated", "form_submit"];
+  if (details.frameId === 0 && validTypes.includes(details.transitionType)) {
     state.lastTypingTime = Date.now();
     persistState();
   }
