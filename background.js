@@ -12,8 +12,9 @@ let state = {
   tabSwitches: [], // timestamps of tab switches
   notifiedAt: 0, // last time we showed a notification (cooldown)
   enabled: true,
-  pausedForVideo: false, // true when watching a YouTube video
+  pausedForVideo: false, // true when actively playing a YouTube video
   pausedAt: 0, // timestamp when pause started (to freeze the timer)
+  videoTabId: null, // tab ID of the YouTube video we're tracking
 };
 
 // Load persisted state and config
@@ -41,59 +42,51 @@ chrome.storage.local.get(["enabled", "loopThresholdMin", "minTabSwitches", "navR
 chrome.tabs.onActivated.addListener((activeInfo) => {
   if (!state.enabled) return;
 
-  // Don't count tab switches while paused for video — they shouldn't
-  // inflate the count for when the user unpauses
+  // Don't count tab switches while paused for video
   if (!state.pausedForVideo) {
     state.tabSwitches.push(Date.now());
     pruneOldSwitches();
   }
 
-  // Check if the newly active tab is a YouTube video
-  chrome.tabs.get(activeInfo.tabId, (tab) => {
-    if (chrome.runtime.lastError) return;
-    const url = tab.url || "";
-    const isYtVideo = url.includes("youtube.com/watch") || url.includes("youtube.com/shorts/");
-
-    if (state.pausedForVideo && !isYtVideo) {
-      // Left a video tab — unpause
-      unPauseVideo();
-    } else if (!state.pausedForVideo && isYtVideo && config.ytPausesTimer) {
-      // Returned to a video tab — reset and pause
-      state.lastTypingTime = Date.now();
-      state.pausedForVideo = true;
-      state.pausedAt = Date.now();
-    }
-  });
-
   checkForLoop();
+});
+
+// Detect when a YouTube video actually starts/stops playing via audible state
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (!state.enabled || !config.ytPausesTimer) return;
+  if (changeInfo.audible === undefined) return; // not an audible change
+
+  const url = tab.url || "";
+  const isYtVideo = url.includes("youtube.com/watch") || url.includes("youtube.com/shorts/");
+  if (!isYtVideo) return;
+
+  if (changeInfo.audible && !state.pausedForVideo) {
+    // Video started playing — pause the timer
+    state.lastTypingTime = Date.now();
+    state.pausedForVideo = true;
+    state.pausedAt = Date.now();
+    state.videoTabId = tabId;
+  } else if (!changeInfo.audible && state.pausedForVideo && state.videoTabId === tabId) {
+    // Video stopped playing (paused, ended, muted) — unpause
+    unPauseVideo();
+  }
 });
 
 // Track window focus changes (switching between browser windows)
 chrome.windows.onFocusChanged.addListener((windowId) => {
   if (!state.enabled) return;
-  if (windowId === chrome.windows.WINDOW_ID_NONE) {
-    // Browser lost focus entirely (switched to another app)
-    // If watching a video, keep paused — they might be alt-tabbing briefly
-    return;
+  if (windowId !== chrome.windows.WINDOW_ID_NONE) {
+    state.tabSwitches.push(Date.now());
+    pruneOldSwitches();
   }
+});
 
-  state.tabSwitches.push(Date.now());
-  pruneOldSwitches();
-
-  // Check if the active tab in the focused window is a YouTube video
-  chrome.tabs.query({ active: true, windowId }, (tabs) => {
-    if (chrome.runtime.lastError || !tabs[0]) return;
-    const url = tabs[0].url || "";
-    const isYtVideo = url.includes("youtube.com/watch") || url.includes("youtube.com/shorts/");
-
-    if (state.pausedForVideo && !isYtVideo) {
-      unPauseVideo();
-    } else if (!state.pausedForVideo && isYtVideo && config.ytPausesTimer) {
-      state.lastTypingTime = Date.now();
-      state.pausedForVideo = true;
-      state.pausedAt = Date.now();
-    }
-  });
+// If the video tab is closed while paused, unpause
+chrome.tabs.onRemoved.addListener((tabId) => {
+  if (state.pausedForVideo && state.videoTabId === tabId) {
+    unPauseVideo();
+    state.videoTabId = null;
+  }
 });
 
 // Treat URL bar navigation as intentional engagement (resets typing timer)
@@ -123,16 +116,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     sendResponse({ ok: true });
   } else if (message.type === "ytVideo") {
-    // User navigated to a YouTube video — reset timer and pause
-    if (config.ytPausesTimer) {
-      state.lastTypingTime = Date.now();
-      state.pausedForVideo = true;
-      state.pausedAt = Date.now();
+    // User navigated to a YouTube video — track the tab but don't pause yet.
+    // Pause only happens when the video actually starts playing (audible).
+    if (config.ytPausesTimer && sender.tab) {
+      state.videoTabId = sender.tab.id;
     }
     sendResponse({ ok: true });
   } else if (message.type === "ytLeft") {
-    // User left the video page (navigated within YouTube)
+    // User left the video page (navigated within YouTube) — unpause if active
     unPauseVideo();
+    state.videoTabId = null;
     sendResponse({ ok: true });
   } else if (message.type === "getState") {
     const now = Date.now();
@@ -164,6 +157,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Always clear video pause when toggling
     state.pausedForVideo = false;
     state.pausedAt = 0;
+    state.videoTabId = null;
     sendResponse({ ok: true });
   } else if (message.type === "dismiss") {
     // User acknowledged the alert — reset everything
@@ -172,6 +166,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     state.notifiedAt = Date.now();
     state.pausedForVideo = false;
     state.pausedAt = 0;
+    state.videoTabId = null;
     sendResponse({ ok: true });
   } else if (message.type === "setConfig") {
     if (message.loopThresholdMin !== undefined) {
