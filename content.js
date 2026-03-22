@@ -159,14 +159,14 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
 
     @keyframes stuck-border-pulse {
       0%, 100% {
-        border-color: rgba(67, 85, 185, 0.15);
+        border-color: rgba(67, 85, 185, 0.2);
         box-shadow: 0 24px 48px -12px rgba(0, 6, 102, 0.15),
-                    0 0 0 0 rgba(133, 150, 255, 0);
+                    0 0 24px 2px rgba(133, 150, 255, 0.15);
       }
       50% {
-        border-color: rgba(67, 85, 185, 0.7);
+        border-color: rgba(67, 85, 185, 0.8);
         box-shadow: 0 24px 48px -12px rgba(0, 6, 102, 0.15),
-                    0 0 40px 4px rgba(133, 150, 255, 0.35);
+                    0 0 60px 8px rgba(133, 150, 255, 0.5);
       }
     }
 
@@ -176,11 +176,7 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
     }
 
     #stuck-loop-icon-glow {
-      position: absolute;
-      inset: -40px;
-      background: rgba(130, 140, 255, 0.55);
-      border-radius: 50%;
-      filter: blur(44px);
+      display: none;
     }
 
     #stuck-loop-icon-box {
