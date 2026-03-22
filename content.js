@@ -1,3 +1,12 @@
+// Guard against double-injection (manifest content_scripts + dynamic executeScript)
+if (window.__stuckInALoopLoaded) {
+  // Already loaded — just re-register the message listener for overlay
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === "showOverlay") showLoopOverlay(message.minutes);
+  });
+} else {
+window.__stuckInALoopLoaded = true;
+
 // Report typing activity to background script
 let typingTimeout = null;
 
@@ -161,3 +170,5 @@ function showLoopOverlay(minutes) {
     style.remove();
   });
 }
+
+} // end guard
