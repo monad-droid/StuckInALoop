@@ -171,15 +171,16 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   }
 });
 
-// Treat navigations as intentional engagement (resets typing timer)
+// When navResetsTimer is on, count address-bar navigations as tab switches
+// rather than resetting the typing timer. Just visiting a site without
+// engaging (typing/clicking) doesn't prove you're being productive.
 chrome.webNavigation.onCommitted.addListener((details) => {
   if (!state.enabled || !config.navResetsTimer) return;
-  // Count top-level navigations from address bar, etc.
-  // Exclude auto_subframe/manual_subframe (iframes, ads) and reload.
-  // "link" transitions are handled separately by the clickResetsTimer toggle.
   const validTypes = ["typed", "generated", "form_submit"];
   if (details.frameId === 0 && validTypes.includes(details.transitionType)) {
-    state.lastTypingTime = Date.now();
+    // Count it as a tab switch instead of an engagement signal
+    state.tabSwitches.push(Date.now());
+    pruneOldSwitches();
     persistState();
   }
 });
