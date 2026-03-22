@@ -16,18 +16,25 @@ function reportTyping() {
   });
 }
 
-// Debounce typing reports — send at most once per 2 seconds
+// Debounce activity reports — send at most once per 2 seconds
+function reportActivity() {
+  if (!typingTimeout) {
+    reportTyping();
+    typingTimeout = setTimeout(() => {
+      typingTimeout = null;
+    }, 2000);
+  }
+}
+
 document.addEventListener("keydown", (e) => {
   // Only count actual content typing, not just modifier keys
   if (e.key.length === 1 || e.key === "Backspace" || e.key === "Enter") {
-    if (!typingTimeout) {
-      reportTyping();
-      typingTimeout = setTimeout(() => {
-        typingTimeout = null;
-      }, 2000);
-    }
+    reportActivity();
   }
 });
+
+// Clicks (navigating subsections, links, buttons) count as activity
+document.addEventListener("click", reportActivity);
 
 // YouTube video detection — YouTube is an SPA so we need to watch for URL changes
 if (location.hostname === "www.youtube.com" || location.hostname === "youtube.com") {
