@@ -219,6 +219,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.enabled) {
       // Reset when re-enabling
       state.lastTypingTime = Date.now();
+      state.sessionStartTime = Date.now();
       state.tabSwitches = [];
     }
     // Always clear video pause when toggling
@@ -249,6 +250,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // User acknowledged the alert — reset the typing timer but clear
     // the cooldown so the next loop can be detected fresh
     state.lastTypingTime = Date.now();
+    state.sessionStartTime = Date.now();
     state.tabSwitches = [];
     state.notifiedAt = 0;
     state.pausedForVideo = false;
@@ -378,6 +380,7 @@ chrome.idle.setDetectionInterval(60); // report idle after 60s of inactivity
 chrome.idle.onStateChanged.addListener((newState) => {
   if (newState === "active" && state.enabled) {
     state.lastTypingTime = Date.now();
+    state.sessionStartTime = Date.now();
     state.tabSwitches = [];
     state.notifiedAt = 0;
     persistState();
