@@ -238,7 +238,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     persistState();
     scheduleLoopCheck();
     // Dismiss overlay in ALL tabs, not just the one that clicked
-    chrome.tabs.query({}, (tabs) => {
+    chrome.tabs.query({ url: ["http://*/*", "https://*/*"] }, (tabs) => {
       for (const tab of tabs) {
         chrome.tabs.sendMessage(tab.id, { type: "dismissOverlay" }).catch(() => {});
       }
@@ -259,7 +259,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     persistState();
     scheduleLoopCheck();
     // Dismiss overlay in ALL tabs
-    chrome.tabs.query({}, (tabs) => {
+    chrome.tabs.query({ url: ["http://*/*", "https://*/*"] }, (tabs) => {
       for (const tab of tabs) {
         chrome.tabs.sendMessage(tab.id, { type: "dismissOverlay" }).catch(() => {});
       }
