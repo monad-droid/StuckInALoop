@@ -1,7 +1,7 @@
 const statusEl = document.getElementById("status");
 const statusSubtitle = document.getElementById("status-subtitle");
 const typingTimeEl = document.getElementById("typing-time");
-const lastTypingEl = document.getElementById("last-typing");
+const activeTimeEl = document.getElementById("active-time");
 const switchCountEl = document.getElementById("switch-count");
 const enabledToggle = document.getElementById("enabled-toggle");
 const statusDot = document.getElementById("status-dot");
@@ -29,13 +29,13 @@ function formatTimer(ms) {
   return `${min}:${sec.toString().padStart(2, "0")}`;
 }
 
-function formatTimeAgo(ms) {
+function formatActiveTime(ms) {
   const totalSec = Math.floor(ms / 1000);
-  if (totalSec < 5) return "Just now";
-  if (totalSec < 60) return `${totalSec}s ago`;
-  const min = Math.floor(totalSec / 60);
-  if (min === 1) return "1 min ago";
-  return `${min} min ago`;
+  const hrs = Math.floor(totalSec / 3600);
+  const min = Math.floor((totalSec % 3600) / 60);
+  const sec = totalSec % 60;
+  if (hrs > 0) return `${hrs}:${min.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
+  return `${min}:${sec.toString().padStart(2, "0")}`;
 }
 
 function updateSwitchesFill() {
@@ -83,13 +83,13 @@ function update() {
       statusSubtitle.textContent = "Detection disabled";
       typingTimeEl.textContent = "--:--";
       switchCountEl.textContent = "--";
-      lastTypingEl.textContent = "--";
+      activeTimeEl.textContent = "--";
       return;
     }
 
     typingTimeEl.textContent = formatTimer(response.timeSinceTyping);
     switchCountEl.textContent = response.tabSwitchCount;
-    lastTypingEl.textContent = formatTimeAgo(response.timeSinceTyping);
+    activeTimeEl.textContent = formatActiveTime(Date.now() - response.sessionStartTime);
 
     const warningThreshold = response.loopThresholdMin * 0.66 * 60 * 1000;
 

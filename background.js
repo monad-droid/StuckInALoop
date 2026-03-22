@@ -11,6 +11,7 @@ let config = { ...DEFAULTS };
 
 let state = {
   lastTypingTime: Date.now(),
+  sessionStartTime: Date.now(), // when the current browsing session started
   tabSwitches: [], // timestamps of tab switches
   notifiedAt: 0, // last time we showed a notification (cooldown)
   enabled: true,
@@ -201,6 +202,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({
       enabled: state.enabled,
       timeSinceTyping,
+      sessionStartTime: state.sessionStartTime,
       tabSwitchCount: state.tabSwitches.length,
       isInLoop: isInLoop(),
       pausedForVideo: state.pausedForVideo,
