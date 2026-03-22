@@ -107,9 +107,9 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
       align-items: center;
       justify-content: center;
       padding: 20px;
-      background: rgba(0, 6, 102, 0.4);
-      backdrop-filter: blur(40px);
-      -webkit-backdrop-filter: blur(40px);
+      background: rgba(0, 6, 102, 0.2);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       animation: stuck-fade-in 0.3s ease-out;
     }
