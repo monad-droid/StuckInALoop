@@ -79,7 +79,7 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
       <p id="stuck-loop-body">It looks like you've been looping for a while. Let's find your way back.</p>
       <div id="stuck-loop-actions">
         <button id="stuck-in-loop-dismiss">Got it, refocusing</button>
-        <button id="stuck-in-loop-snooze">Snooze ${snoozeDurationMin} min</button>
+        ${snoozeDurationMin ? `<button id="stuck-in-loop-snooze">Snooze ${snoozeDurationMin} min</button>` : ''}
       </div>
     </div>
   `;
@@ -278,11 +278,14 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
     style.remove();
   });
 
-  document.getElementById("stuck-in-loop-snooze").addEventListener("click", () => {
-    chrome.runtime.sendMessage({ type: "snooze" }).catch(() => {});
-    overlay.remove();
-    style.remove();
-  });
+  const snoozeBtn = document.getElementById("stuck-in-loop-snooze");
+  if (snoozeBtn) {
+    snoozeBtn.addEventListener("click", () => {
+      chrome.runtime.sendMessage({ type: "snooze" }).catch(() => {});
+      overlay.remove();
+      style.remove();
+    });
+  }
 }
 
 } // end guard
