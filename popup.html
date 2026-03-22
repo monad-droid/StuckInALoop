@@ -187,7 +187,7 @@
       position: relative;
     }
     .info-asterisk:hover::after {
-      content: attr(title);
+      content: attr(data-tip);
       position: absolute;
       left: 50%;
       transform: translateX(-50%);
@@ -382,7 +382,7 @@
         <!-- Time inactive -->
         <div class="config-card">
           <div class="config-card-header">
-            <label>Time inactive<span class="info-asterisk" title="Activity includes typing, using the URL bar, or watching YouTube. The timer resets when any of these are detected.">*</span></label>
+            <label>Time inactive<span class="info-asterisk" data-tip="Activity includes typing, using the URL bar, or watching YouTube. The timer resets when any of these are detected.">*</span></label>
             <span class="config-badge" id="threshold-badge">15 min</span>
           </div>
           <input type="range" id="threshold-min" min="1" max="60" value="15">
