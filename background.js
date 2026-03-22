@@ -51,11 +51,13 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
 // Treat URL bar navigation as intentional engagement (resets typing timer)
 chrome.webNavigation.onCommitted.addListener((details) => {
   if (!state.enabled || !config.navResetsTimer) return;
-  // Only count top-level navigations triggered by the user typing/clicking in the URL bar
-  // "typed" = address bar, "auto_bookmark" = bookmark click — both are intentional
+  // Only count top-level navigations initiated from the address bar
+  // transitionQualifiers includes "from_address_bar" for any omnibox usage
+  // (searches, typed URLs, autocomplete selections)
   if (
     details.frameId === 0 &&
-    (details.transitionType === "typed" || details.transitionType === "generated")
+    details.transitionQualifiers &&
+    details.transitionQualifiers.includes("from_address_bar")
   ) {
     state.lastTypingTime = Date.now();
   }
