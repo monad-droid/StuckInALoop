@@ -180,6 +180,30 @@
       font-weight: 600;
       color: #454652;
     }
+    .info-asterisk {
+      color: #000666;
+      cursor: help;
+      font-weight: 700;
+      position: relative;
+    }
+    .info-asterisk:hover::after {
+      content: attr(title);
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      top: calc(100% + 6px);
+      background: #1a237e;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 400;
+      padding: 8px 10px;
+      border-radius: 8px;
+      width: 200px;
+      white-space: normal;
+      z-index: 100;
+      line-height: 1.4;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
     .config-badge {
       font-size: 12px;
       font-weight: 700;
@@ -355,10 +379,10 @@
         <h3>Configuration</h3>
       </div>
       <div class="config-controls">
-        <!-- Time without typing -->
+        <!-- Time inactive -->
         <div class="config-card">
           <div class="config-card-header">
-            <label>Time without typing</label>
+            <label>Time inactive<span class="info-asterisk" title="Activity includes typing, using the URL bar, or watching YouTube. The timer resets when any of these are detected.">*</span></label>
             <span class="config-badge" id="threshold-badge">15 min</span>
           </div>
           <input type="range" id="threshold-min" min="1" max="60" value="15">
