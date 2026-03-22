@@ -285,7 +285,13 @@ function scheduleLoopCheck() {
     checkForLoop();
   } else {
     loopTimeout = setTimeout(() => {
-      checkForLoop();
+      // Re-check actual elapsed time — setTimeout can fire slightly early
+      const actualRemaining = thresholdMs - (Date.now() - state.lastTypingTime);
+      if (actualRemaining > 0) {
+        loopTimeout = setTimeout(() => checkForLoop(), actualRemaining);
+      } else {
+        checkForLoop();
+      }
     }, remaining);
   }
 }
