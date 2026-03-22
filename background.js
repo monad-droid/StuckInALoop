@@ -226,6 +226,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     state.pausedAt = 0;
     state.videoTabId = null;
     persistState();
+    // If re-enabling with ytPausesTimer on, check for already-audible YouTube
+    if (message.enabled && config.ytPausesTimer) {
+      chrome.tabs.query({ audible: true }, (tabs) => {
+        if (!tabs) return;
+        for (const tab of tabs) {
+          const url = tab.url || "";
+          if ((url.includes("youtube.com/watch") || url.includes("youtube.com/shorts/")) && !state.pausedForVideo) {
+            state.lastTypingTime = Date.now();
+            state.pausedForVideo = true;
+            state.pausedAt = Date.now();
+            state.videoTabId = tab.id;
+            persistState();
+            break;
+          }
+        }
+      });
+    }
     scheduleLoopCheck();
     sendResponse({ ok: true });
   } else if (message.type === "dismiss") {
@@ -293,6 +310,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.ytPausesTimer !== undefined) {
       config.ytPausesTimer = message.ytPausesTimer;
       chrome.storage.local.set({ ytPausesTimer: config.ytPausesTimer });
+      if (!message.ytPausesTimer) {
+        // Turning off YouTube detection — clear any active video pause
+        unPauseVideo();
+        state.videoTabId = null;
+      } else {
+        // Turning on — check if a YouTube video is already audible
+        chrome.tabs.query({ audible: true }, (tabs) => {
+          if (!tabs) return;
+          for (const tab of tabs) {
+            const url = tab.url || "";
+            if ((url.includes("youtube.com/watch") || url.includes("youtube.com/shorts/")) && !state.pausedForVideo) {
+              state.lastTypingTime = Date.now();
+              state.pausedForVideo = true;
+              state.pausedAt = Date.now();
+              state.videoTabId = tab.id;
+              persistState();
+              break;
+            }
+          }
+        });
+      }
     }
     if (message.clickResetsTimer !== undefined) {
       config.clickResetsTimer = message.clickResetsTimer;

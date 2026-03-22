@@ -23,6 +23,7 @@ let currentMinSwitches = 0;
 const MAX_SWITCHES = 20;
 
 function formatTimer(ms) {
+  if (ms < 0) ms = 0;
   const totalSec = Math.floor(ms / 1000);
   const min = Math.floor(totalSec / 60);
   const sec = totalSec % 60;
