@@ -236,8 +236,19 @@ function checkForLoop() {
 
   const now = Date.now();
   const NOTIFY_COOLDOWN_MS = 5 * 60 * 1000; // don't re-notify within 5min
+  const inLoop = isInLoop();
+  const cooldownOk = now - state.notifiedAt > NOTIFY_COOLDOWN_MS;
 
-  if (isInLoop() && now - state.notifiedAt > NOTIFY_COOLDOWN_MS) {
+  console.log("[StuckInALoop] check:", {
+    inLoop,
+    cooldownOk,
+    timeSinceTypingSec: Math.round((now - state.lastTypingTime) / 1000),
+    thresholdSec: config.loopThresholdMin * 60,
+    notifiedAgoSec: Math.round((now - state.notifiedAt) / 1000),
+  });
+
+  if (inLoop && cooldownOk) {
+    console.log("[StuckInALoop] TRIGGERING ALERT");
     triggerAlert();
   }
 }
@@ -247,41 +258,37 @@ function triggerAlert() {
     (Date.now() - state.lastTypingTime) / 1000 / 60
   );
 
-  // Try to show overlay on the active tab
+  // Set cooldown immediately to prevent repeated triggers
+  state.notifiedAt = Date.now();
+
+  // Always show browser notification (works on any page)
+  chrome.notifications.create("loop-alert-" + Date.now(), {
+    type: "basic",
+    iconUrl: "icons/icon128.png",
+    title: "You're stuck in a loop!",
+    message: `You've been ${minutes} minutes without typing anything. Take a breath — what did you actually want to do?`,
+    priority: 2,
+    requireInteraction: true,
+  });
+
+  // Try to inject overlay into the active tab (only works on http pages)
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const tab = tabs && tabs[0];
-    const canInject = tab && tab.url && tab.url.startsWith("http");
+    if (!tab || !tab.url || !tab.url.startsWith("http")) return;
 
-    if (canInject) {
-      // Set cooldown only when we can actually show something
-      state.notifiedAt = Date.now();
-
-      // Show browser notification
-      chrome.notifications.create("loop-alert-" + Date.now(), {
-        type: "basic",
-        iconUrl: "icons/icon128.png",
-        title: "You're stuck in a loop!",
-        message: `You've been ${minutes} minutes without typing anything. Take a breath — what did you actually want to do?`,
-        priority: 2,
-        requireInteraction: true,
-      });
-
-      // Try sending to existing content script first
-      chrome.tabs.sendMessage(tab.id, { type: "showOverlay", minutes }, (response) => {
-        if (chrome.runtime.lastError) {
-          // Content script not loaded — inject dynamically
-          chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            files: ["content.js"],
-          }, () => {
-            if (chrome.runtime.lastError) return;
-            setTimeout(() => {
-              chrome.tabs.sendMessage(tab.id, { type: "showOverlay", minutes });
-            }, 100);
-          });
-        }
-      });
-    }
-    // If can't inject (chrome:// page etc), don't set cooldown — retry next check
+    chrome.tabs.sendMessage(tab.id, { type: "showOverlay", minutes }, (response) => {
+      if (chrome.runtime.lastError) {
+        // Content script not loaded — inject dynamically
+        chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ["content.js"],
+        }, () => {
+          if (chrome.runtime.lastError) return;
+          setTimeout(() => {
+            chrome.tabs.sendMessage(tab.id, { type: "showOverlay", minutes });
+          }, 100);
+        });
+      }
+    });
   });
 }
