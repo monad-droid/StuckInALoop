@@ -13,7 +13,6 @@ let state = {
   lastTypingTime: Date.now(),
   tabSwitches: [], // timestamps of tab switches
   notifiedAt: 0, // last time we showed a notification (cooldown)
-  alertWindowId: null, // ID of the popup alert window (if open)
   enabled: true,
   pausedForVideo: false, // true when actively playing a YouTube video
   pausedAt: 0, // timestamp when pause started (to freeze the timer)
@@ -368,22 +367,7 @@ function triggerAlert() {
   state.notifiedAt = Date.now();
   persistState();
 
-  // Check if our alert window is already open
-  if (state.alertWindowId) {
-    chrome.windows.get(state.alertWindowId, (win) => {
-      if (chrome.runtime.lastError || !win) {
-        state.alertWindowId = null;
-        openAlertWindow(minutes);
-      } else {
-        // Window exists — focus it
-        chrome.windows.update(state.alertWindowId, { focused: true });
-      }
-    });
-  } else {
-    openAlertWindow(minutes);
-  }
-
-  // Also show browser notification as backup
+  // Show browser notification
   chrome.notifications.create("loop-alert-" + Date.now(), {
     type: "basic",
     iconUrl: "icons/icon128.png",
@@ -393,46 +377,30 @@ function triggerAlert() {
     requireInteraction: true,
   });
 
-  // Also try overlay on active tab (best experience when it works)
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    const tab = tabs && tabs[0];
-    if (!tab || !tab.url || !tab.url.startsWith("http")) return;
-
-    chrome.tabs.sendMessage(tab.id, { type: "showOverlay", minutes, snoozeDurationMin: config.snoozeDurationMin }, (response) => {
-      if (chrome.runtime.lastError) {
-        // Content script not loaded — inject dynamically
-        chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          files: ["content.js"],
-        }, () => {
-          if (chrome.runtime.lastError) return;
-          setTimeout(() => {
-            chrome.tabs.sendMessage(tab.id, { type: "showOverlay", minutes, snoozeDurationMin: config.snoozeDurationMin });
-          }, 100);
-        });
-      }
-    });
+  // Try to inject overlay into ALL http tabs, not just the active one.
+  // This ensures the user sees it even if the active tab query fails.
+  chrome.tabs.query({}, (tabs) => {
+    if (!tabs) return;
+    for (const tab of tabs) {
+      if (!tab.url || !tab.url.startsWith("http")) continue;
+      tryShowOverlay(tab.id, minutes);
+    }
   });
 }
 
-function openAlertWindow(minutes) {
-  const url = chrome.runtime.getURL(
-    `alert.html?minutes=${minutes}&snooze=${config.snoozeDurationMin}`
-  );
-  chrome.windows.create({
-    url,
-    type: "popup",
-    width: 520,
-    height: 480,
-    focused: true,
-  }, (win) => {
-    if (win) state.alertWindowId = win.id;
+function tryShowOverlay(tabId, minutes) {
+  chrome.tabs.sendMessage(tabId, { type: "showOverlay", minutes, snoozeDurationMin: config.snoozeDurationMin }, (response) => {
+    if (chrome.runtime.lastError) {
+      // Content script not loaded — inject dynamically
+      chrome.scripting.executeScript({
+        target: { tabId },
+        files: ["content.js"],
+      }, () => {
+        if (chrome.runtime.lastError) return;
+        setTimeout(() => {
+          chrome.tabs.sendMessage(tabId, { type: "showOverlay", minutes, snoozeDurationMin: config.snoozeDurationMin });
+        }, 200);
+      });
+    }
   });
 }
-
-// Clean up alert window reference when it's closed
-chrome.windows.onRemoved.addListener((windowId) => {
-  if (state.alertWindowId === windowId) {
-    state.alertWindowId = null;
-  }
-});
