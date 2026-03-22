@@ -69,6 +69,7 @@ chrome.storage.local.get(
     state.ready = true;
     // Run an immediate check now that state is loaded
     checkForLoop();
+    scheduleLoopCheck();
   }
 );
 
@@ -162,6 +163,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       state.lastTypingTime = Date.now();
     }
     persistState();
+    scheduleLoopCheck();
     sendResponse({ ok: true });
   } else if (message.type === "ytVideo") {
     // User navigated to a YouTube video — track the tab but don't pause yet.
@@ -208,6 +210,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     state.pausedAt = 0;
     state.videoTabId = null;
     persistState();
+    scheduleLoopCheck();
     sendResponse({ ok: true });
   } else if (message.type === "dismiss") {
     // User acknowledged the alert — reset the typing timer but clear
@@ -219,6 +222,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     state.pausedAt = 0;
     state.videoTabId = null;
     persistState();
+    scheduleLoopCheck();
     sendResponse({ ok: true });
   } else if (message.type === "snooze") {
     // User snoozed — reset stats, set cooldown for snooze duration
@@ -232,6 +236,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     state.pausedAt = 0;
     state.videoTabId = null;
     persistState();
+    scheduleLoopCheck();
     sendResponse({ ok: true });
   } else if (message.type === "setConfig") {
     if (message.loopThresholdMin !== undefined) {
@@ -260,23 +265,38 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       config.ytPausesTimer = message.ytPausesTimer;
       chrome.storage.local.set({ ytPausesTimer: config.ytPausesTimer });
     }
+    scheduleLoopCheck();
     sendResponse({ ok: true });
   }
   return true; // keep channel open for async sendResponse
 });
 
-// Periodic check — alarms have a 1min minimum in MV3, so supplement
-// with a setInterval for more responsive detection
+// Schedule a single check right when the threshold will be hit
+let loopTimeout = null;
+function scheduleLoopCheck() {
+  if (loopTimeout) clearTimeout(loopTimeout);
+  if (!state.enabled || state.pausedForVideo) return;
+
+  const thresholdMs = config.loopThresholdMin * 60 * 1000;
+  const elapsed = Date.now() - state.lastTypingTime;
+  const remaining = thresholdMs - elapsed;
+
+  if (remaining <= 0) {
+    checkForLoop();
+  } else {
+    loopTimeout = setTimeout(() => {
+      checkForLoop();
+    }, remaining);
+  }
+}
+
+// Backup alarm in case the service worker restarts and loses the timeout
 chrome.alarms.create("loopCheck", { periodInMinutes: 1 });
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "loopCheck" && state.enabled) {
     checkForLoop();
   }
 });
-// Check every 5 seconds for responsive detection without excess CPU usage
-setInterval(() => {
-  if (state.enabled) checkForLoop();
-}, 5000);
 
 function unPauseVideo() {
   if (!state.pausedForVideo) return;
@@ -286,6 +306,7 @@ function unPauseVideo() {
   state.pausedForVideo = false;
   state.pausedAt = 0;
   persistState();
+  scheduleLoopCheck();
 }
 
 function pruneOldSwitches() {
