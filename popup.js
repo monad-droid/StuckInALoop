@@ -4,6 +4,7 @@ const switchCountEl = document.getElementById("switch-count");
 const enabledToggle = document.getElementById("enabled-toggle");
 const thresholdInput = document.getElementById("threshold-min");
 const minSwitchesInput = document.getElementById("min-switches");
+const snoozeDurationInput = document.getElementById("snooze-duration");
 const navResetsToggle = document.getElementById("nav-resets-toggle");
 const ytPauseToggle = document.getElementById("yt-pause-toggle");
 
@@ -27,6 +28,10 @@ function update() {
     }
     if (document.activeElement !== minSwitchesInput) {
       minSwitchesInput.value = response.minTabSwitches;
+    }
+    if (document.activeElement !== snoozeDurationInput) {
+      snoozeDurationInput.value = response.snoozeDurationMin;
+      snoozeDurationInput.max = response.loopThresholdMin - 1;
     }
     navResetsToggle.checked = response.navResetsTimer;
     ytPauseToggle.checked = response.ytPausesTimer;
@@ -71,15 +76,18 @@ enabledToggle.addEventListener("change", () => {
 function saveConfig() {
   const loopThresholdMin = Math.max(1, Math.min(120, parseInt(thresholdInput.value) || 15));
   const minTabSwitches = Math.max(1, Math.min(50, parseInt(minSwitchesInput.value) || 5));
+  const snoozeDurationMin = Math.max(1, Math.min(loopThresholdMin - 1, parseInt(snoozeDurationInput.value) || 5));
   chrome.runtime.sendMessage({
     type: "setConfig",
     loopThresholdMin,
     minTabSwitches,
+    snoozeDurationMin,
   });
 }
 
 thresholdInput.addEventListener("change", saveConfig);
 minSwitchesInput.addEventListener("change", saveConfig);
+snoozeDurationInput.addEventListener("change", saveConfig);
 navResetsToggle.addEventListener("change", () => {
   chrome.runtime.sendMessage({
     type: "setConfig",

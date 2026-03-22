@@ -1,6 +1,7 @@
 const DEFAULTS = {
   loopThresholdMin: 15,
   minTabSwitches: 5,
+  snoozeDurationMin: 5,
   navResetsTimer: true,
   ytPausesTimer: true,
 };
@@ -20,7 +21,7 @@ let state = {
 
 // Load persisted state and config
 chrome.storage.local.get(
-  ["enabled", "loopThresholdMin", "minTabSwitches", "navResetsTimer", "ytPausesTimer", "lastTypingTime", "notifiedAt", "tabSwitches"],
+  ["enabled", "loopThresholdMin", "minTabSwitches", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "lastTypingTime", "notifiedAt", "tabSwitches"],
   (result) => {
     if (result.enabled !== undefined) {
       state.enabled = result.enabled;
@@ -30,6 +31,9 @@ chrome.storage.local.get(
     }
     if (result.minTabSwitches !== undefined) {
       config.minTabSwitches = result.minTabSwitches;
+    }
+    if (result.snoozeDurationMin !== undefined) {
+      config.snoozeDurationMin = result.snoozeDurationMin;
     }
     if (result.navResetsTimer !== undefined) {
       config.navResetsTimer = result.navResetsTimer;
@@ -172,6 +176,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       pausedForVideo: state.pausedForVideo,
       loopThresholdMin: config.loopThresholdMin,
       minTabSwitches: config.minTabSwitches,
+      snoozeDurationMin: config.snoozeDurationMin,
       navResetsTimer: config.navResetsTimer,
       ytPausesTimer: config.ytPausesTimer,
     });
@@ -201,10 +206,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     persistState();
     sendResponse({ ok: true });
   } else if (message.type === "snooze") {
-    // User snoozed — reset stats but keep 5min cooldown
+    // User snoozed — reset stats, set cooldown for snooze duration
+    // We offset notifiedAt so it expires after snoozeDurationMin
+    const snoozeCooldownMs = config.snoozeDurationMin * 60 * 1000;
+    const NOTIFY_COOLDOWN_MS = 5 * 60 * 1000;
     state.lastTypingTime = Date.now();
     state.tabSwitches = [];
-    state.notifiedAt = Date.now();
+    state.notifiedAt = Date.now() - NOTIFY_COOLDOWN_MS + snoozeCooldownMs;
     state.pausedForVideo = false;
     state.pausedAt = 0;
     state.videoTabId = null;
@@ -214,10 +222,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.loopThresholdMin !== undefined) {
       config.loopThresholdMin = message.loopThresholdMin;
       chrome.storage.local.set({ loopThresholdMin: config.loopThresholdMin });
+      // Clamp snooze to stay below new threshold
+      if (config.snoozeDurationMin >= config.loopThresholdMin) {
+        config.snoozeDurationMin = Math.max(1, config.loopThresholdMin - 1);
+        chrome.storage.local.set({ snoozeDurationMin: config.snoozeDurationMin });
+      }
     }
     if (message.minTabSwitches !== undefined) {
       config.minTabSwitches = message.minTabSwitches;
       chrome.storage.local.set({ minTabSwitches: config.minTabSwitches });
+    }
+    if (message.snoozeDurationMin !== undefined) {
+      // Enforce snooze < threshold
+      config.snoozeDurationMin = Math.min(message.snoozeDurationMin, config.loopThresholdMin - 1);
+      chrome.storage.local.set({ snoozeDurationMin: config.snoozeDurationMin });
     }
     if (message.navResetsTimer !== undefined) {
       config.navResetsTimer = message.navResetsTimer;
@@ -308,7 +326,7 @@ function triggerAlert() {
     const tab = tabs && tabs[0];
     if (!tab || !tab.url || !tab.url.startsWith("http")) return;
 
-    chrome.tabs.sendMessage(tab.id, { type: "showOverlay", minutes }, (response) => {
+    chrome.tabs.sendMessage(tab.id, { type: "showOverlay", minutes, snoozeDurationMin: config.snoozeDurationMin }, (response) => {
       if (chrome.runtime.lastError) {
         // Content script not loaded — inject dynamically
         chrome.scripting.executeScript({
@@ -317,7 +335,7 @@ function triggerAlert() {
         }, () => {
           if (chrome.runtime.lastError) return;
           setTimeout(() => {
-            chrome.tabs.sendMessage(tab.id, { type: "showOverlay", minutes });
+            chrome.tabs.sendMessage(tab.id, { type: "showOverlay", minutes, snoozeDurationMin: config.snoozeDurationMin });
           }, 100);
         });
       }

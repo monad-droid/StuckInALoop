@@ -2,7 +2,7 @@
 if (window.__stuckInALoopLoaded) {
   // Already loaded — just re-register the message listener for overlay
   chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === "showOverlay") showLoopOverlay(message.minutes);
+    if (message.type === "showOverlay") showLoopOverlay(message.minutes, message.snoozeDurationMin);
   });
 } else {
 window.__stuckInALoopLoaded = true;
@@ -58,7 +58,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-function showLoopOverlay(minutes) {
+function showLoopOverlay(minutes, snoozeDurationMin) {
+  snoozeDurationMin = snoozeDurationMin || 5;
   // Don't stack overlays
   if (document.getElementById("stuck-in-loop-overlay")) return;
 
@@ -71,7 +72,7 @@ function showLoopOverlay(minutes) {
       <p>You've been switching tabs and scrolling for <strong id="stuck-in-loop-minutes"></strong> without typing anything.</p>
       <p class="stuck-sub">What did you actually sit down to do?</p>
       <button id="stuck-in-loop-dismiss">Got it, refocusing</button>
-      <button id="stuck-in-loop-snooze">Snooze 5 min</button>
+      <button id="stuck-in-loop-snooze">Snooze ${snoozeDurationMin} min</button>
     </div>
   `;
 
