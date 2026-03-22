@@ -1,4 +1,3 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <rect width="128" height="128" rx="24" fill="#000666"/>
-  <text x="64" y="64" text-anchor="middle" dominant-baseline="central" font-family="system-ui, -apple-system, sans-serif" font-size="80" font-weight="700" fill="#ffffff">⌘</text>
+  <text x="64" y="64" text-anchor="middle" dominant-baseline="central" font-family="system-ui, -apple-system, sans-serif" font-size="120" font-weight="700" fill="#000666">⌘</text>
 </svg>
