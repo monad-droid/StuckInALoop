@@ -1,7 +1,9 @@
-const LOOP_THRESHOLD_MS = 15 * 60 * 1000; // 15 minutes
-const CHECK_INTERVAL_MS = 30 * 1000; // check every 30s
-const TAB_SWITCH_WINDOW_MS = 15 * 60 * 1000; // track switches in last 15min
-const MIN_TAB_SWITCHES = 5; // need at least this many switches to count as "looping"
+const DEFAULTS = {
+  loopThresholdMin: 15,
+  minTabSwitches: 5,
+};
+
+let config = { ...DEFAULTS };
 
 let state = {
   lastTypingTime: Date.now(),
@@ -10,10 +12,16 @@ let state = {
   enabled: true,
 };
 
-// Load persisted state
-chrome.storage.local.get(["loopDetectorState", "enabled"], (result) => {
+// Load persisted state and config
+chrome.storage.local.get(["enabled", "loopThresholdMin", "minTabSwitches"], (result) => {
   if (result.enabled !== undefined) {
     state.enabled = result.enabled;
+  }
+  if (result.loopThresholdMin !== undefined) {
+    config.loopThresholdMin = result.loopThresholdMin;
+  }
+  if (result.minTabSwitches !== undefined) {
+    config.minTabSwitches = result.minTabSwitches;
   }
   // Always reset lastTypingTime on service worker start
   state.lastTypingTime = Date.now();
@@ -49,6 +57,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       timeSinceTyping: now - state.lastTypingTime,
       tabSwitchCount: state.tabSwitches.length,
       isInLoop: isInLoop(),
+      loopThresholdMin: config.loopThresholdMin,
+      minTabSwitches: config.minTabSwitches,
     });
   } else if (message.type === "setEnabled") {
     state.enabled = message.enabled;
@@ -65,6 +75,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     state.tabSwitches = [];
     state.notifiedAt = Date.now();
     sendResponse({ ok: true });
+  } else if (message.type === "setConfig") {
+    if (message.loopThresholdMin !== undefined) {
+      config.loopThresholdMin = message.loopThresholdMin;
+      chrome.storage.local.set({ loopThresholdMin: config.loopThresholdMin });
+    }
+    if (message.minTabSwitches !== undefined) {
+      config.minTabSwitches = message.minTabSwitches;
+      chrome.storage.local.set({ minTabSwitches: config.minTabSwitches });
+    }
+    sendResponse({ ok: true });
   }
   return true; // keep channel open for async sendResponse
 });
@@ -78,18 +98,20 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 function pruneOldSwitches() {
-  const cutoff = Date.now() - TAB_SWITCH_WINDOW_MS;
+  const windowMs = config.loopThresholdMin * 60 * 1000;
+  const cutoff = Date.now() - windowMs;
   state.tabSwitches = state.tabSwitches.filter((t) => t > cutoff);
 }
 
 function isInLoop() {
   const now = Date.now();
   const timeSinceTyping = now - state.lastTypingTime;
+  const thresholdMs = config.loopThresholdMin * 60 * 1000;
   pruneOldSwitches();
 
   return (
-    timeSinceTyping >= LOOP_THRESHOLD_MS &&
-    state.tabSwitches.length >= MIN_TAB_SWITCHES
+    timeSinceTyping >= thresholdMs &&
+    state.tabSwitches.length >= config.minTabSwitches
   );
 }
 

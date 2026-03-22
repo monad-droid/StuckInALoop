@@ -2,6 +2,8 @@ const statusEl = document.getElementById("status");
 const typingTimeEl = document.getElementById("typing-time");
 const switchCountEl = document.getElementById("switch-count");
 const enabledToggle = document.getElementById("enabled-toggle");
+const thresholdInput = document.getElementById("threshold-min");
+const minSwitchesInput = document.getElementById("min-switches");
 
 function formatTime(ms) {
   const totalSec = Math.floor(ms / 1000);
@@ -17,6 +19,14 @@ function update() {
 
     enabledToggle.checked = response.enabled;
 
+    // Sync config inputs (only when not focused, to avoid fighting the user)
+    if (document.activeElement !== thresholdInput) {
+      thresholdInput.value = response.loopThresholdMin;
+    }
+    if (document.activeElement !== minSwitchesInput) {
+      minSwitchesInput.value = response.minTabSwitches;
+    }
+
     if (!response.enabled) {
       statusEl.textContent = "Paused";
       statusEl.className = "status-value";
@@ -28,10 +38,12 @@ function update() {
     typingTimeEl.textContent = formatTime(response.timeSinceTyping);
     switchCountEl.textContent = response.tabSwitchCount;
 
+    const warningThreshold = response.loopThresholdMin * 0.66 * 60 * 1000;
+
     if (response.isInLoop) {
       statusEl.textContent = "Stuck in a loop!";
       statusEl.className = "status-value danger";
-    } else if (response.timeSinceTyping > 10 * 60 * 1000) {
+    } else if (response.timeSinceTyping > warningThreshold) {
       statusEl.textContent = "Drifting...";
       statusEl.className = "status-value warning";
     } else {
@@ -48,6 +60,19 @@ enabledToggle.addEventListener("change", () => {
   });
   setTimeout(update, 100);
 });
+
+function saveConfig() {
+  const loopThresholdMin = Math.max(1, Math.min(120, parseInt(thresholdInput.value) || 15));
+  const minTabSwitches = Math.max(1, Math.min(50, parseInt(minSwitchesInput.value) || 5));
+  chrome.runtime.sendMessage({
+    type: "setConfig",
+    loopThresholdMin,
+    minTabSwitches,
+  });
+}
+
+thresholdInput.addEventListener("change", saveConfig);
+minSwitchesInput.addEventListener("change", saveConfig);
 
 update();
 setInterval(update, 1000);

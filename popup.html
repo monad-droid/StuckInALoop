@@ -63,6 +63,44 @@
       font-size: 18px;
       font-weight: 600;
     }
+    .settings {
+      margin-bottom: 16px;
+    }
+    .settings-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #888;
+      margin-bottom: 10px;
+    }
+    .setting-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #16213e;
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 8px;
+    }
+    .setting-row label {
+      font-size: 13px;
+      color: #ccc;
+    }
+    .setting-row input[type="number"] {
+      width: 60px;
+      background: #0f3460;
+      border: 1px solid #333;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 4px 8px;
+      text-align: center;
+      outline: none;
+    }
+    .setting-row input[type="number"]:focus {
+      border-color: #e94560;
+    }
     .toggle-row {
       display: flex;
       justify-content: space-between;
@@ -131,6 +169,18 @@
     <div class="stat">
       <div class="stat-label">Tab switches (15m)</div>
       <div class="stat-value" id="switch-count">0</div>
+    </div>
+  </div>
+
+  <div class="settings">
+    <div class="settings-title">Settings</div>
+    <div class="setting-row">
+      <label>Time without typing (min)</label>
+      <input type="number" id="threshold-min" min="1" max="120" value="15">
+    </div>
+    <div class="setting-row">
+      <label>Min tab switches</label>
+      <input type="number" id="min-switches" min="1" max="50" value="5">
     </div>
   </div>
 
