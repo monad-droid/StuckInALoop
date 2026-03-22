@@ -7,13 +7,24 @@ if (window.__stuckInALoopLoaded) {
 } else {
 window.__stuckInALoopLoaded = true;
 
+// Safely send a message to the background script.
+// When the extension is reloaded/updated, the old content script's
+// chrome.runtime context is invalidated and sendMessage throws
+// synchronously. This wrapper catches that.
+function safeSendMessage(msg) {
+  try {
+    if (!chrome.runtime?.id) return; // context already dead
+    chrome.runtime.sendMessage(msg).catch(() => {});
+  } catch (e) {
+    // Extension context invalidated — nothing we can do
+  }
+}
+
 // Report typing activity to background script
 let typingTimeout = null;
 
 function reportTyping() {
-  chrome.runtime.sendMessage({ type: "typing" }).catch(() => {
-    // Extension context may be invalidated, ignore
-  });
+  safeSendMessage({ type: "typing" });
 }
 
 // Debounce activity reports — send at most once per 2 seconds
@@ -38,7 +49,7 @@ let clickTimeout = null;
 document.addEventListener("click", (e) => {
   if (!e.target.closest("a")) return;
   if (!clickTimeout) {
-    chrome.runtime.sendMessage({ type: "click" }).catch(() => {});
+    safeSendMessage({ type: "click" });
     clickTimeout = setTimeout(() => { clickTimeout = null; }, 2000);
   }
 });
@@ -51,10 +62,10 @@ if (location.hostname === "www.youtube.com" || location.hostname === "youtube.co
     const isVideo = location.pathname === "/watch" || location.pathname.startsWith("/shorts/");
     if (isVideo && !wasOnVideo) {
       // Just landed on a video
-      chrome.runtime.sendMessage({ type: "ytVideo" }).catch(() => {});
+      safeSendMessage({ type: "ytVideo" });
     } else if (!isVideo && wasOnVideo) {
       // Left a video page (went to homepage, search, etc.)
-      chrome.runtime.sendMessage({ type: "ytLeft" }).catch(() => {});
+      safeSendMessage({ type: "ytLeft" });
     }
     wasOnVideo = isVideo;
   }
@@ -292,7 +303,7 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
   document.documentElement.appendChild(overlay);
 
   document.getElementById("stuck-in-loop-dismiss").addEventListener("click", () => {
-    chrome.runtime.sendMessage({ type: "dismiss" }).catch(() => {});
+    safeSendMessage({ type: "dismiss" });
     overlay.remove();
     style.remove();
   });
@@ -300,7 +311,7 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
   const snoozeBtn = document.getElementById("stuck-in-loop-snooze");
   if (snoozeBtn) {
     snoozeBtn.addEventListener("click", () => {
-      chrome.runtime.sendMessage({ type: "snooze" }).catch(() => {});
+      safeSendMessage({ type: "snooze" });
       overlay.remove();
       style.remove();
     });
