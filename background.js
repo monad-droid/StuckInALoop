@@ -284,15 +284,10 @@ function scheduleLoopCheck() {
   if (remaining <= 0) {
     checkForLoop();
   } else {
+    // Add 1s buffer so it never fires early
     loopTimeout = setTimeout(() => {
-      // Re-check actual elapsed time — setTimeout can fire slightly early
-      const actualRemaining = thresholdMs - (Date.now() - state.lastTypingTime);
-      if (actualRemaining > 0) {
-        loopTimeout = setTimeout(() => checkForLoop(), actualRemaining);
-      } else {
-        checkForLoop();
-      }
-    }, remaining);
+      checkForLoop();
+    }, remaining + 1000);
   }
 }
 
