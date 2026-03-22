@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stuck In A Loop</title>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(0, 6, 102, 0.06);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .ambient-1 {
+      position: fixed;
+      top: -10%;
+      left: -10%;
+      width: 384px;
+      height: 384px;
+      background: rgba(26, 35, 126, 0.15);
+      border-radius: 50%;
+      filter: blur(120px);
+      pointer-events: none;
+    }
+
+    .ambient-2 {
+      position: fixed;
+      bottom: -10%;
+      right: -10%;
+      width: 384px;
+      height: 384px;
+      background: rgba(133, 150, 255, 0.15);
+      border-radius: 50%;
+      filter: blur(120px);
+      pointer-events: none;
+    }
+
+    .card {
+      position: relative;
+      width: 100%;
+      max-width: 520px;
+      background: #fff;
+      border-radius: 32px;
+      padding: 56px;
+      border: 1px solid rgba(67, 85, 185, 0.12);
+      box-shadow: 0 24px 48px -12px rgba(0, 6, 102, 0.15);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      animation: border-pulse 3s ease-in-out infinite;
+    }
+
+    @keyframes border-pulse {
+      0%, 100% {
+        border-color: rgba(67, 85, 185, 0.2);
+        box-shadow: 0 24px 48px -12px rgba(0, 6, 102, 0.15),
+                    0 0 24px 2px rgba(133, 150, 255, 0.15);
+      }
+      50% {
+        border-color: rgba(67, 85, 185, 0.8);
+        box-shadow: 0 24px 48px -12px rgba(0, 6, 102, 0.15),
+                    0 0 60px 8px rgba(133, 150, 255, 0.5);
+      }
+    }
+
+    .icon-box {
+      width: 72px;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 16px;
+      background: #e7e8e9;
+      color: #000666;
+      margin-bottom: 32px;
+    }
+
+    .icon-box span {
+      font-size: 42px;
+      font-family: 'Manrope', system-ui, sans-serif;
+    }
+
+    h1 {
+      font-family: 'Manrope', sans-serif;
+      font-weight: 800;
+      font-size: 32px;
+      color: #191c1d;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      margin: 0 0 20px;
+    }
+
+    p {
+      font-size: 16px;
+      color: #454652;
+      line-height: 1.5;
+      max-width: 360px;
+      margin: 0 0 40px;
+    }
+
+    .actions {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .btn-dismiss {
+      padding: 14px 28px;
+      background: linear-gradient(135deg, #000666 0%, #4355b9 100%);
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 8px 24px -4px rgba(0, 6, 102, 0.3);
+      transition: all 0.2s;
+    }
+    .btn-dismiss:hover {
+      box-shadow: 0 12px 32px -4px rgba(0, 6, 102, 0.4);
+    }
+    .btn-dismiss:active { transform: scale(0.95); }
+
+    .btn-snooze {
+      padding: 14px 28px;
+      background: #e7e8e9;
+      color: #11278e;
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-snooze:hover { background: #e1e3e4; }
+    .btn-snooze:active { transform: scale(0.95); }
+  </style>
+</head>
+<body>
+  <div class="ambient-1"></div>
+  <div class="ambient-2"></div>
+  <div class="card">
+    <div class="icon-box">
+      <span>⌘</span>
+    </div>
+    <h1>What did you actually sit down to do?</h1>
+    <p id="body-text">It looks like you've been looping for a while. Let's find your way back.</p>
+    <div class="actions">
+      <button class="btn-dismiss" id="dismiss-btn">Got it, refocusing</button>
+      <button class="btn-snooze" id="snooze-btn">Snooze 5 min</button>
+    </div>
+  </div>
+  <script src="alert.js"></script>
+</body>
+</html>

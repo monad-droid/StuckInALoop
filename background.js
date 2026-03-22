@@ -13,6 +13,7 @@ let state = {
   lastTypingTime: Date.now(),
   tabSwitches: [], // timestamps of tab switches
   notifiedAt: 0, // last time we showed a notification (cooldown)
+  alertWindowId: null, // ID of the popup alert window (if open)
   enabled: true,
   pausedForVideo: false, // true when actively playing a YouTube video
   pausedAt: 0, // timestamp when pause started (to freeze the timer)
@@ -242,7 +243,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Offset lastTypingTime so isInLoop() becomes true when snooze expires
     const snoozeCooldownMs = config.snoozeDurationMin * 60 * 1000;
     const thresholdMs = config.loopThresholdMin * 60 * 1000;
-    const NOTIFY_COOLDOWN_MS = 5 * 60 * 1000;
+    const NOTIFY_COOLDOWN_MS = 2 * 60 * 1000;
     state.lastTypingTime = Date.now() - thresholdMs + snoozeCooldownMs;
     state.tabSwitches = [];
     state.notifiedAt = Date.now() - NOTIFY_COOLDOWN_MS + snoozeCooldownMs;
@@ -309,8 +310,9 @@ function scheduleLoopCheck() {
   }
 }
 
-// Backup alarm in case the service worker restarts and loses the timeout
-chrome.alarms.create("loopCheck", { periodInMinutes: 1 });
+// Backup alarm in case the service worker restarts and loses the timeout.
+// Chrome MV3 minimum alarm period is 0.5 minutes (30 seconds).
+chrome.alarms.create("loopCheck", { periodInMinutes: 0.5 });
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "loopCheck" && state.enabled) {
     checkForLoop();
@@ -351,7 +353,7 @@ function checkForLoop() {
   if (!state.enabled || !state.ready) return;
 
   const now = Date.now();
-  const NOTIFY_COOLDOWN_MS = 5 * 60 * 1000; // don't re-notify within 5min
+  const NOTIFY_COOLDOWN_MS = 2 * 60 * 1000; // don't re-notify within 2min
   if (isInLoop() && now - state.notifiedAt > NOTIFY_COOLDOWN_MS) {
     triggerAlert();
   }
@@ -366,7 +368,22 @@ function triggerAlert() {
   state.notifiedAt = Date.now();
   persistState();
 
-  // Always show browser notification (works on any page)
+  // Check if our alert window is already open
+  if (state.alertWindowId) {
+    chrome.windows.get(state.alertWindowId, (win) => {
+      if (chrome.runtime.lastError || !win) {
+        state.alertWindowId = null;
+        openAlertWindow(minutes);
+      } else {
+        // Window exists — focus it
+        chrome.windows.update(state.alertWindowId, { focused: true });
+      }
+    });
+  } else {
+    openAlertWindow(minutes);
+  }
+
+  // Also show browser notification as backup
   chrome.notifications.create("loop-alert-" + Date.now(), {
     type: "basic",
     iconUrl: "icons/icon128.png",
@@ -376,7 +393,7 @@ function triggerAlert() {
     requireInteraction: true,
   });
 
-  // Try to inject overlay into the active tab (only works on http pages)
+  // Also try overlay on active tab (best experience when it works)
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     const tab = tabs && tabs[0];
     if (!tab || !tab.url || !tab.url.startsWith("http")) return;
@@ -397,3 +414,25 @@ function triggerAlert() {
     });
   });
 }
+
+function openAlertWindow(minutes) {
+  const url = chrome.runtime.getURL(
+    `alert.html?minutes=${minutes}&snooze=${config.snoozeDurationMin}`
+  );
+  chrome.windows.create({
+    url,
+    type: "popup",
+    width: 520,
+    height: 480,
+    focused: true,
+  }, (win) => {
+    if (win) state.alertWindowId = win.id;
+  });
+}
+
+// Clean up alert window reference when it's closed
+chrome.windows.onRemoved.addListener((windowId) => {
+  if (state.alertWindowId === windowId) {
+    state.alertWindowId = null;
+  }
+});
