@@ -92,18 +92,43 @@ function persistState() {
   });
 }
 
+// Verify the tracked video tab is still on a video page and audible.
+// If not, unpause immediately. Returns a Promise that resolves to true
+// if video state was cleared.
+function validateVideoState() {
+  return new Promise((resolve) => {
+    if (!state.pausedForVideo || state.videoTabId == null) return resolve(false);
+    chrome.tabs.get(state.videoTabId, (tab) => {
+      if (chrome.runtime.lastError || !tab) {
+        unPauseVideo();
+        state.videoTabId = null;
+        return resolve(true);
+      }
+      const url = tab.url || "";
+      const isYtVideo = url.includes("youtube.com/watch") || url.includes("youtube.com/shorts/");
+      if (!isYtVideo || !tab.audible) {
+        unPauseVideo();
+        state.videoTabId = null;
+        return resolve(true);
+      }
+      resolve(false);
+    });
+  });
+}
+
 // Track tab switches
 chrome.tabs.onActivated.addListener((activeInfo) => {
   if (!state.enabled) return;
 
-  // Don't count tab switches while paused for video
-  if (!state.pausedForVideo) {
-    state.tabSwitches.push(Date.now());
-    pruneOldSwitches();
-    persistState();
-  }
-
-  checkForLoop();
+  // Re-validate video state on every tab switch
+  validateVideoState().then(() => {
+    if (!state.pausedForVideo) {
+      state.tabSwitches.push(Date.now());
+      pruneOldSwitches();
+      persistState();
+    }
+    checkForLoop();
+  });
 });
 
 // Detect when a YouTube video actually starts/stops playing via audible state
@@ -197,26 +222,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     state.videoTabId = null;
     sendResponse({ ok: true });
   } else if (message.type === "getState") {
-    const now = Date.now();
-    pruneOldSwitches();
-    // If paused for video, report time as frozen at pause point
-    let timeSinceTyping = now - state.lastTypingTime;
-    if (state.pausedForVideo) {
-      timeSinceTyping = state.pausedAt - state.lastTypingTime;
-    }
-    sendResponse({
-      enabled: state.enabled,
-      timeSinceTyping,
-      sessionStartTime: state.sessionStartTime,
-      tabSwitchCount: state.tabSwitches.length,
-      isInLoop: isInLoop(),
-      pausedForVideo: state.pausedForVideo,
-      loopThresholdMin: config.loopThresholdMin,
-      minTabSwitches: config.minTabSwitches,
-      snoozeDurationMin: config.snoozeDurationMin,
-      navResetsTimer: config.navResetsTimer,
-      ytPausesTimer: config.ytPausesTimer,
-      clickResetsTimer: config.clickResetsTimer,
+    // Validate video state before responding so popup always sees current truth
+    validateVideoState().then(() => {
+      const now = Date.now();
+      pruneOldSwitches();
+      // If paused for video, report time as frozen at pause point
+      let timeSinceTyping = now - state.lastTypingTime;
+      if (state.pausedForVideo) {
+        timeSinceTyping = state.pausedAt - state.lastTypingTime;
+      }
+      sendResponse({
+        enabled: state.enabled,
+        timeSinceTyping,
+        sessionStartTime: state.sessionStartTime,
+        tabSwitchCount: state.tabSwitches.length,
+        isInLoop: isInLoop(),
+        pausedForVideo: state.pausedForVideo,
+        loopThresholdMin: config.loopThresholdMin,
+        minTabSwitches: config.minTabSwitches,
+        snoozeDurationMin: config.snoozeDurationMin,
+        navResetsTimer: config.navResetsTimer,
+        ytPausesTimer: config.ytPausesTimer,
+        clickResetsTimer: config.clickResetsTimer,
+      });
     });
   } else if (message.type === "setEnabled") {
     state.enabled = message.enabled;
@@ -390,25 +418,6 @@ function scheduleLoopCheck() {
 chrome.alarms.create("loopCheck", { periodInMinutes: 0.5 });
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "loopCheck" && state.enabled) {
-    // Validate that a "paused for video" state is still accurate
-    if (state.pausedForVideo && state.videoTabId != null) {
-      chrome.tabs.get(state.videoTabId, (tab) => {
-        if (chrome.runtime.lastError || !tab) {
-          // Tab no longer exists
-          unPauseVideo();
-          state.videoTabId = null;
-          return;
-        }
-        const url = tab.url || "";
-        const isYtVideo = url.includes("youtube.com/watch") || url.includes("youtube.com/shorts/");
-        if (!isYtVideo || !tab.audible) {
-          // Tab is no longer on a video page or no longer audible
-          unPauseVideo();
-          state.videoTabId = null;
-        }
-      });
-      return;
-    }
     checkForLoop();
   }
 });
