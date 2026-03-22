@@ -1,10 +1,10 @@
 const DEFAULTS = {
-  loopThresholdMin: 15,
-  minTabSwitches: 5,
+  loopThresholdMin: 10,
+  minTabSwitches: 3,
   snoozeDurationMin: 5,
   navResetsTimer: true,
   ytPausesTimer: true,
-  clickResetsTimer: true,
+  clickResetsTimer: false,
 };
 
 let config = { ...DEFAULTS };

@@ -10,7 +10,7 @@
 
     body {
       width: 380px;
-      min-height: 560px;
+      min-height: 520px;
       overflow-x: hidden;
       background: #f8f9fa;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -79,8 +79,8 @@
     .header-divider { background: #e2e8f0; height: 1px; width: 100%; }
 
     /* Main */
-    main { padding: 20px; }
-    main > * + * { margin-top: 32px; }
+    main { padding: 16px 20px; }
+    main > * + * { margin-top: 24px; }
 
     /* Status Grid */
     .status-grid {
@@ -383,15 +383,15 @@
         <div class="config-card">
           <div class="config-card-header">
             <label>Time inactive<span class="info-asterisk" data-tip="Activity includes typing, clicking links, switching tabs, using the URL bar, or watching YouTube. The timer resets when any of these are detected.">*</span></label>
-            <span class="config-badge" id="threshold-badge">15 min</span>
+            <span class="config-badge" id="threshold-badge">10 min</span>
           </div>
-          <input type="range" id="threshold-min" min="1" max="60" value="15">
+          <input type="range" id="threshold-min" min="1" max="60" value="10">
         </div>
         <!-- Min tab switches -->
         <div class="config-card">
           <div class="config-card-header">
             <label>Min tab switches</label>
-            <span class="config-badge" id="switches-badge">5</span>
+            <span class="config-badge" id="switches-badge">3</span>
           </div>
           <div class="stepper">
             <button class="stepper-btn" id="switches-dec">
@@ -430,7 +430,7 @@
         </div>
         <div class="toggle-row">
           <span>Link clicks reset timer</span>
-          <button class="toggle-btn on" id="click-resets-toggle">
+          <button class="toggle-btn off" id="click-resets-toggle">
             <div class="toggle-knob"></div>
           </button>
         </div>
