@@ -236,6 +236,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     state.videoTabId = null;
     persistState();
     scheduleLoopCheck();
+    // Dismiss overlay in ALL tabs, not just the one that clicked
+    chrome.tabs.query({}, (tabs) => {
+      for (const tab of tabs) {
+        chrome.tabs.sendMessage(tab.id, { type: "dismissOverlay" }).catch(() => {});
+      }
+    });
     sendResponse({ ok: true });
   } else if (message.type === "snooze") {
     // User snoozed — re-fire after snoozeDurationMin
@@ -251,6 +257,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     state.videoTabId = null;
     persistState();
     scheduleLoopCheck();
+    // Dismiss overlay in ALL tabs
+    chrome.tabs.query({}, (tabs) => {
+      for (const tab of tabs) {
+        chrome.tabs.sendMessage(tab.id, { type: "dismissOverlay" }).catch(() => {});
+      }
+    });
     sendResponse({ ok: true });
   } else if (message.type === "setConfig") {
     if (message.loopThresholdMin !== undefined) {

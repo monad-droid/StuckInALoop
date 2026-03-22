@@ -69,6 +69,11 @@ if (location.hostname === "www.youtube.com" || location.hostname === "youtube.co
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "showOverlay") {
     showLoopOverlay(message.minutes, message.snoozeDurationMin);
+  } else if (message.type === "dismissOverlay") {
+    const overlay = document.getElementById("stuck-in-loop-overlay");
+    if (overlay) overlay.remove();
+    const style = document.getElementById("stuck-in-loop-style");
+    if (style) style.remove();
   }
 });
 
