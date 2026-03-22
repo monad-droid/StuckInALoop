@@ -159,14 +159,14 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
 
     @keyframes stuck-border-pulse {
       0%, 100% {
-        border-color: rgba(67, 85, 185, 0.08);
+        border-color: rgba(67, 85, 185, 0.15);
         box-shadow: 0 24px 48px -12px rgba(0, 6, 102, 0.15),
                     0 0 0 0 rgba(133, 150, 255, 0);
       }
       50% {
-        border-color: rgba(67, 85, 185, 0.25);
+        border-color: rgba(67, 85, 185, 0.7);
         box-shadow: 0 24px 48px -12px rgba(0, 6, 102, 0.15),
-                    0 0 20px 0 rgba(133, 150, 255, 0.08);
+                    0 0 40px 4px rgba(133, 150, 255, 0.35);
       }
     }
 
