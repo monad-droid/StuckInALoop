@@ -18,7 +18,7 @@ const navResetsToggle = document.getElementById("nav-resets-toggle");
 const ytPauseToggle = document.getElementById("yt-pause-toggle");
 
 let currentEnabled = true;
-let currentMinSwitches = 5;
+let currentMinSwitches = 0;
 const MAX_SWITCHES = 20;
 
 function formatTimer(ms) {
