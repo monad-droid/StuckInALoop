@@ -225,11 +225,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     scheduleLoopCheck();
     sendResponse({ ok: true });
   } else if (message.type === "snooze") {
-    // User snoozed — reset stats, set cooldown for snooze duration
-    // We offset notifiedAt so it expires after snoozeDurationMin
+    // User snoozed — re-fire after snoozeDurationMin
+    // Offset lastTypingTime so isInLoop() becomes true when snooze expires
     const snoozeCooldownMs = config.snoozeDurationMin * 60 * 1000;
+    const thresholdMs = config.loopThresholdMin * 60 * 1000;
     const NOTIFY_COOLDOWN_MS = 5 * 60 * 1000;
-    state.lastTypingTime = Date.now();
+    state.lastTypingTime = Date.now() - thresholdMs + snoozeCooldownMs;
     state.tabSwitches = [];
     state.notifiedAt = Date.now() - NOTIFY_COOLDOWN_MS + snoozeCooldownMs;
     state.pausedForVideo = false;
