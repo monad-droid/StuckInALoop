@@ -273,10 +273,10 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     checkForLoop();
   }
 });
-// Check every 15 seconds for faster response
+// Check every second so the alert fires right when the timer hits
 setInterval(() => {
   if (state.enabled) checkForLoop();
-}, 15000);
+}, 1000);
 
 function unPauseVideo() {
   if (!state.pausedForVideo) return;
