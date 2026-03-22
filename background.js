@@ -19,6 +19,17 @@ let state = {
   ready: false, // true once persisted state has been loaded
 };
 
+// Reset stats on extension install/reload/update
+chrome.runtime.onInstalled.addListener(() => {
+  state.lastTypingTime = Date.now();
+  state.tabSwitches = [];
+  state.notifiedAt = 0;
+  state.pausedForVideo = false;
+  state.pausedAt = 0;
+  state.videoTabId = null;
+  persistState();
+});
+
 // Load persisted state and config
 chrome.storage.local.get(
   ["enabled", "loopThresholdMin", "minTabSwitches", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "lastTypingTime", "notifiedAt", "tabSwitches"],
