@@ -238,7 +238,6 @@ function checkForLoop() {
   const NOTIFY_COOLDOWN_MS = 5 * 60 * 1000; // don't re-notify within 5min
 
   if (isInLoop() && now - state.notifiedAt > NOTIFY_COOLDOWN_MS) {
-    state.notifiedAt = now;
     triggerAlert();
   }
 }
@@ -248,39 +247,41 @@ function triggerAlert() {
     (Date.now() - state.lastTypingTime) / 1000 / 60
   );
 
-  // Show browser notification
-  chrome.notifications.create("loop-alert-" + Date.now(), {
-    type: "basic",
-    iconUrl: "icons/icon128.png",
-    title: "You're stuck in a loop!",
-    message: `You've been ${minutes} minutes without typing anything. Take a breath — what did you actually want to do?`,
-    priority: 2,
-    requireInteraction: true,
-  });
-
-  // Try to inject overlay into the active tab
+  // Try to show overlay on the active tab
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (!tabs[0]) return;
-    const tab = tabs[0];
+    const tab = tabs && tabs[0];
+    const canInject = tab && tab.url && tab.url.startsWith("http");
 
-    // Can't inject into chrome://, brave://, edge://, about: pages
-    if (!tab.url || !tab.url.startsWith("http")) return;
+    if (canInject) {
+      // Set cooldown only when we can actually show something
+      state.notifiedAt = Date.now();
 
-    // Try sending to existing content script first
-    chrome.tabs.sendMessage(tab.id, { type: "showOverlay", minutes }, (response) => {
-      if (chrome.runtime.lastError) {
-        // Content script not loaded on this tab — inject it dynamically
-        chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          files: ["content.js"],
-        }, () => {
-          if (chrome.runtime.lastError) return;
-          // Now send the overlay message to the freshly injected script
-          setTimeout(() => {
-            chrome.tabs.sendMessage(tab.id, { type: "showOverlay", minutes });
-          }, 100);
-        });
-      }
-    });
+      // Show browser notification
+      chrome.notifications.create("loop-alert-" + Date.now(), {
+        type: "basic",
+        iconUrl: "icons/icon128.png",
+        title: "You're stuck in a loop!",
+        message: `You've been ${minutes} minutes without typing anything. Take a breath — what did you actually want to do?`,
+        priority: 2,
+        requireInteraction: true,
+      });
+
+      // Try sending to existing content script first
+      chrome.tabs.sendMessage(tab.id, { type: "showOverlay", minutes }, (response) => {
+        if (chrome.runtime.lastError) {
+          // Content script not loaded — inject dynamically
+          chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ["content.js"],
+          }, () => {
+            if (chrome.runtime.lastError) return;
+            setTimeout(() => {
+              chrome.tabs.sendMessage(tab.id, { type: "showOverlay", minutes });
+            }, 100);
+          });
+        }
+      });
+    }
+    // If can't inject (chrome:// page etc), don't set cooldown — retry next check
   });
 }
