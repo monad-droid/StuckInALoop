@@ -4,6 +4,7 @@ const switchCountEl = document.getElementById("switch-count");
 const enabledToggle = document.getElementById("enabled-toggle");
 const thresholdInput = document.getElementById("threshold-min");
 const minSwitchesInput = document.getElementById("min-switches");
+const navResetsToggle = document.getElementById("nav-resets-toggle");
 
 function formatTime(ms) {
   const totalSec = Math.floor(ms / 1000);
@@ -26,6 +27,7 @@ function update() {
     if (document.activeElement !== minSwitchesInput) {
       minSwitchesInput.value = response.minTabSwitches;
     }
+    navResetsToggle.checked = response.navResetsTimer;
 
     if (!response.enabled) {
       statusEl.textContent = "Paused";
@@ -73,6 +75,12 @@ function saveConfig() {
 
 thresholdInput.addEventListener("change", saveConfig);
 minSwitchesInput.addEventListener("change", saveConfig);
+navResetsToggle.addEventListener("change", () => {
+  chrome.runtime.sendMessage({
+    type: "setConfig",
+    navResetsTimer: navResetsToggle.checked,
+  });
+});
 
 update();
 setInterval(update, 1000);

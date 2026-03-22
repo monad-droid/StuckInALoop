@@ -1,6 +1,7 @@
 const DEFAULTS = {
   loopThresholdMin: 15,
   minTabSwitches: 5,
+  navResetsTimer: true,
 };
 
 let config = { ...DEFAULTS };
@@ -13,7 +14,7 @@ let state = {
 };
 
 // Load persisted state and config
-chrome.storage.local.get(["enabled", "loopThresholdMin", "minTabSwitches"], (result) => {
+chrome.storage.local.get(["enabled", "loopThresholdMin", "minTabSwitches", "navResetsTimer"], (result) => {
   if (result.enabled !== undefined) {
     state.enabled = result.enabled;
   }
@@ -22,6 +23,9 @@ chrome.storage.local.get(["enabled", "loopThresholdMin", "minTabSwitches"], (res
   }
   if (result.minTabSwitches !== undefined) {
     config.minTabSwitches = result.minTabSwitches;
+  }
+  if (result.navResetsTimer !== undefined) {
+    config.navResetsTimer = result.navResetsTimer;
   }
   // Always reset lastTypingTime on service worker start
   state.lastTypingTime = Date.now();
@@ -44,6 +48,19 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
   }
 });
 
+// Treat URL bar navigation as intentional engagement (resets typing timer)
+chrome.webNavigation.onCommitted.addListener((details) => {
+  if (!state.enabled || !config.navResetsTimer) return;
+  // Only count top-level navigations triggered by the user typing/clicking in the URL bar
+  // "typed" = address bar, "auto_bookmark" = bookmark click — both are intentional
+  if (
+    details.frameId === 0 &&
+    (details.transitionType === "typed" || details.transitionType === "generated")
+  ) {
+    state.lastTypingTime = Date.now();
+  }
+});
+
 // Listen for typing reports from content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "typing") {
@@ -59,6 +76,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       isInLoop: isInLoop(),
       loopThresholdMin: config.loopThresholdMin,
       minTabSwitches: config.minTabSwitches,
+      navResetsTimer: config.navResetsTimer,
     });
   } else if (message.type === "setEnabled") {
     state.enabled = message.enabled;
@@ -83,6 +101,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.minTabSwitches !== undefined) {
       config.minTabSwitches = message.minTabSwitches;
       chrome.storage.local.set({ minTabSwitches: config.minTabSwitches });
+    }
+    if (message.navResetsTimer !== undefined) {
+      config.navResetsTimer = message.navResetsTimer;
+      chrome.storage.local.set({ navResetsTimer: config.navResetsTimer });
     }
     sendResponse({ ok: true });
   }

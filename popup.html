@@ -148,6 +148,17 @@
     .toggle input:checked + .slider::before {
       transform: translateX(20px);
     }
+    .toggle-sm {
+      width: 38px;
+      height: 20px;
+    }
+    .toggle-sm .slider::before {
+      width: 14px;
+      height: 14px;
+    }
+    .toggle-sm input:checked + .slider::before {
+      transform: translateX(18px);
+    }
   </style>
 </head>
 <body>
@@ -181,6 +192,13 @@
     <div class="setting-row">
       <label>Min tab switches</label>
       <input type="number" id="min-switches" min="1" max="50" value="5">
+    </div>
+    <div class="setting-row">
+      <label>URL bar typing resets timer</label>
+      <div class="toggle toggle-sm">
+        <input type="checkbox" id="nav-resets-toggle" checked>
+        <span class="slider"></span>
+      </div>
     </div>
   </div>
 
