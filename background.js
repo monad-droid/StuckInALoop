@@ -2,6 +2,7 @@ const DEFAULTS = {
   loopThresholdMin: 15,
   minTabSwitches: 5,
   navResetsTimer: true,
+  ytPausesTimer: true,
 };
 
 let config = { ...DEFAULTS };
@@ -11,10 +12,12 @@ let state = {
   tabSwitches: [], // timestamps of tab switches
   notifiedAt: 0, // last time we showed a notification (cooldown)
   enabled: true,
+  pausedForVideo: false, // true when watching a YouTube video
+  pausedAt: 0, // timestamp when pause started (to freeze the timer)
 };
 
 // Load persisted state and config
-chrome.storage.local.get(["enabled", "loopThresholdMin", "minTabSwitches", "navResetsTimer"], (result) => {
+chrome.storage.local.get(["enabled", "loopThresholdMin", "minTabSwitches", "navResetsTimer", "ytPausesTimer"], (result) => {
   if (result.enabled !== undefined) {
     state.enabled = result.enabled;
   }
@@ -26,6 +29,9 @@ chrome.storage.local.get(["enabled", "loopThresholdMin", "minTabSwitches", "navR
   }
   if (result.navResetsTimer !== undefined) {
     config.navResetsTimer = result.navResetsTimer;
+  }
+  if (result.ytPausesTimer !== undefined) {
+    config.ytPausesTimer = result.ytPausesTimer;
   }
   // Always reset lastTypingTime on service worker start
   state.lastTypingTime = Date.now();
@@ -68,17 +74,42 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "typing") {
     state.lastTypingTime = Date.now();
     sendResponse({ ok: true });
+  } else if (message.type === "ytVideo") {
+    // User navigated to a YouTube video — reset timer and pause
+    if (config.ytPausesTimer) {
+      state.lastTypingTime = Date.now();
+      state.pausedForVideo = true;
+      state.pausedAt = Date.now();
+    }
+    sendResponse({ ok: true });
+  } else if (message.type === "ytLeft") {
+    // User left the video page (navigated within YouTube)
+    if (state.pausedForVideo) {
+      // Credit the time spent watching — shift lastTypingTime forward
+      const pauseDuration = Date.now() - state.pausedAt;
+      state.lastTypingTime += pauseDuration;
+      state.pausedForVideo = false;
+      state.pausedAt = 0;
+    }
+    sendResponse({ ok: true });
   } else if (message.type === "getState") {
     const now = Date.now();
     pruneOldSwitches();
+    // If paused for video, report time as frozen at pause point
+    let timeSinceTyping = now - state.lastTypingTime;
+    if (state.pausedForVideo) {
+      timeSinceTyping = state.pausedAt - state.lastTypingTime;
+    }
     sendResponse({
       enabled: state.enabled,
-      timeSinceTyping: now - state.lastTypingTime,
+      timeSinceTyping,
       tabSwitchCount: state.tabSwitches.length,
       isInLoop: isInLoop(),
+      pausedForVideo: state.pausedForVideo,
       loopThresholdMin: config.loopThresholdMin,
       minTabSwitches: config.minTabSwitches,
       navResetsTimer: config.navResetsTimer,
+      ytPausesTimer: config.ytPausesTimer,
     });
   } else if (message.type === "setEnabled") {
     state.enabled = message.enabled;
@@ -108,6 +139,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       config.navResetsTimer = message.navResetsTimer;
       chrome.storage.local.set({ navResetsTimer: config.navResetsTimer });
     }
+    if (message.ytPausesTimer !== undefined) {
+      config.ytPausesTimer = message.ytPausesTimer;
+      chrome.storage.local.set({ ytPausesTimer: config.ytPausesTimer });
+    }
     sendResponse({ ok: true });
   }
   return true; // keep channel open for async sendResponse
@@ -128,6 +163,7 @@ function pruneOldSwitches() {
 }
 
 function isInLoop() {
+  if (state.pausedForVideo) return false;
   const now = Date.now();
   const timeSinceTyping = now - state.lastTypingTime;
   const thresholdMs = config.loopThresholdMin * 60 * 1000;

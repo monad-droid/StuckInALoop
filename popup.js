@@ -5,6 +5,7 @@ const enabledToggle = document.getElementById("enabled-toggle");
 const thresholdInput = document.getElementById("threshold-min");
 const minSwitchesInput = document.getElementById("min-switches");
 const navResetsToggle = document.getElementById("nav-resets-toggle");
+const ytPauseToggle = document.getElementById("yt-pause-toggle");
 
 function formatTime(ms) {
   const totalSec = Math.floor(ms / 1000);
@@ -28,6 +29,7 @@ function update() {
       minSwitchesInput.value = response.minTabSwitches;
     }
     navResetsToggle.checked = response.navResetsTimer;
+    ytPauseToggle.checked = response.ytPausesTimer;
 
     if (!response.enabled) {
       statusEl.textContent = "Paused";
@@ -42,7 +44,10 @@ function update() {
 
     const warningThreshold = response.loopThresholdMin * 0.66 * 60 * 1000;
 
-    if (response.isInLoop) {
+    if (response.pausedForVideo) {
+      statusEl.textContent = "Watching video";
+      statusEl.className = "status-value safe";
+    } else if (response.isInLoop) {
       statusEl.textContent = "Stuck in a loop!";
       statusEl.className = "status-value danger";
     } else if (response.timeSinceTyping > warningThreshold) {
@@ -79,6 +84,12 @@ navResetsToggle.addEventListener("change", () => {
   chrome.runtime.sendMessage({
     type: "setConfig",
     navResetsTimer: navResetsToggle.checked,
+  });
+});
+ytPauseToggle.addEventListener("change", () => {
+  chrome.runtime.sendMessage({
+    type: "setConfig",
+    ytPausesTimer: ytPauseToggle.checked,
   });
 });
 

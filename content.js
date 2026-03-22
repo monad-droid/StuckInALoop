@@ -20,6 +20,28 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+// YouTube video detection — YouTube is an SPA so we need to watch for URL changes
+if (location.hostname === "www.youtube.com" || location.hostname === "youtube.com") {
+  let wasOnVideo = false;
+
+  function checkYouTubePage() {
+    const isVideo = location.pathname === "/watch" || location.pathname.startsWith("/shorts/");
+    if (isVideo && !wasOnVideo) {
+      // Just landed on a video
+      chrome.runtime.sendMessage({ type: "ytVideo" }).catch(() => {});
+    } else if (!isVideo && wasOnVideo) {
+      // Left a video page (went to homepage, search, etc.)
+      chrome.runtime.sendMessage({ type: "ytLeft" }).catch(() => {});
+    }
+    wasOnVideo = isVideo;
+  }
+
+  // YouTube fires this custom event on SPA navigations
+  document.addEventListener("yt-navigate-finish", checkYouTubePage);
+  // Also check on initial load
+  checkYouTubePage();
+}
+
 // Listen for overlay trigger from background
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "showOverlay") {
