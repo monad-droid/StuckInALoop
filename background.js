@@ -18,6 +18,7 @@ let state = {
   pausedForVideo: false, // true when actively playing a YouTube video
   pausedAt: 0, // timestamp when pause started (to freeze the timer)
   videoTabId: null, // tab ID of the YouTube video we're tracking
+  snoozedAt: 0, // timestamp when snooze started (0 = not snoozing)
   ready: false, // true once persisted state has been loaded
 };
 
@@ -38,7 +39,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Load persisted state and config
 chrome.storage.local.get(
-  ["enabled", "loopThresholdMin", "minTabSwitches", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "lastTypingTime", "notifiedAt", "tabSwitches"],
+  ["enabled", "loopThresholdMin", "minTabSwitches", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "lastTypingTime", "notifiedAt", "tabSwitches", "snoozedAt"],
   (result) => {
     if (result.enabled !== undefined) {
       state.enabled = result.enabled;
@@ -71,6 +72,9 @@ chrome.storage.local.get(
     if (result.tabSwitches) {
       state.tabSwitches = result.tabSwitches;
     }
+    if (result.snoozedAt) {
+      state.snoozedAt = result.snoozedAt;
+    }
     state.ready = true;
     // Run an immediate check now that state is loaded
     checkForLoop();
@@ -84,6 +88,7 @@ function persistState() {
     lastTypingTime: state.lastTypingTime,
     notifiedAt: state.notifiedAt,
     tabSwitches: state.tabSwitches,
+    snoozedAt: state.snoozedAt,
   });
 }
 
@@ -220,6 +225,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // Reset when re-enabling
       state.lastTypingTime = Date.now();
       state.sessionStartTime = Date.now();
+      state.snoozedAt = 0;
       state.tabSwitches = [];
     }
     // Always clear video pause when toggling
@@ -251,6 +257,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // the cooldown so the next loop can be detected fresh
     state.lastTypingTime = Date.now();
     state.sessionStartTime = Date.now();
+    state.snoozedAt = 0;
     state.tabSwitches = [];
     state.notifiedAt = 0;
     state.pausedForVideo = false;
@@ -271,6 +278,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const snoozeCooldownMs = config.snoozeDurationMin * 60 * 1000;
     const thresholdMs = config.loopThresholdMin * 60 * 1000;
     const NOTIFY_COOLDOWN_MS = 2 * 60 * 1000;
+    state.snoozedAt = Date.now();
     state.lastTypingTime = Date.now() - thresholdMs + snoozeCooldownMs;
     state.tabSwitches = [];
     state.notifiedAt = Date.now() - NOTIFY_COOLDOWN_MS + snoozeCooldownMs;
@@ -302,8 +310,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     if (message.snoozeDurationMin !== undefined) {
       // Enforce snooze < threshold
+      const oldSnoozeDurationMin = config.snoozeDurationMin;
       config.snoozeDurationMin = Math.min(message.snoozeDurationMin, config.loopThresholdMin - 1);
       chrome.storage.local.set({ snoozeDurationMin: config.snoozeDurationMin });
+      // If mid-snooze, recalculate offsets so the new duration takes effect
+      if (state.snoozedAt > 0 && config.snoozeDurationMin !== oldSnoozeDurationMin) {
+        const elapsed = Date.now() - state.snoozedAt;
+        const newSnoozeCooldownMs = config.snoozeDurationMin * 60 * 1000;
+        const remainingSnooze = Math.max(0, newSnoozeCooldownMs - elapsed);
+        const thresholdMs = config.loopThresholdMin * 60 * 1000;
+        const NOTIFY_COOLDOWN_MS = 2 * 60 * 1000;
+        state.lastTypingTime = Date.now() - thresholdMs + remainingSnooze;
+        state.notifiedAt = Date.now() - NOTIFY_COOLDOWN_MS + remainingSnooze;
+        persistState();
+        scheduleLoopCheck();
+      }
     }
     if (message.navResetsTimer !== undefined) {
       config.navResetsTimer = message.navResetsTimer;
@@ -381,6 +402,7 @@ chrome.idle.onStateChanged.addListener((newState) => {
   if (newState === "active" && state.enabled) {
     state.lastTypingTime = Date.now();
     state.sessionStartTime = Date.now();
+    state.snoozedAt = 0;
     state.tabSwitches = [];
     state.notifiedAt = 0;
     persistState();
@@ -432,6 +454,9 @@ function triggerAlert() {
   const minutes = Math.round(
     (Date.now() - state.lastTypingTime) / 1000 / 60
   );
+
+  // Snooze has expired
+  state.snoozedAt = 0;
 
   // Set cooldown immediately to prevent repeated triggers
   state.notifiedAt = Date.now();
