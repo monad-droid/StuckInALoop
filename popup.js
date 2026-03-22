@@ -16,6 +16,7 @@ const snoozeDurationInput = document.getElementById("snooze-duration");
 const snoozeBadge = document.getElementById("snooze-badge");
 const navResetsToggle = document.getElementById("nav-resets-toggle");
 const ytPauseToggle = document.getElementById("yt-pause-toggle");
+const clickResetsToggle = document.getElementById("click-resets-toggle");
 
 let currentEnabled = true;
 let currentMinSwitches = 0;
@@ -74,6 +75,7 @@ function update() {
     }
     setToggleState(navResetsToggle, response.navResetsTimer);
     setToggleState(ytPauseToggle, response.ytPausesTimer);
+    setToggleState(clickResetsToggle, response.clickResetsTimer);
 
     if (!response.enabled) {
       statusEl.textContent = "Paused";
@@ -158,6 +160,11 @@ ytPauseToggle.addEventListener("click", () => {
   const isOn = ytPauseToggle.classList.contains("on");
   setToggleState(ytPauseToggle, !isOn);
   chrome.runtime.sendMessage({ type: "setConfig", ytPausesTimer: !isOn });
+});
+clickResetsToggle.addEventListener("click", () => {
+  const isOn = clickResetsToggle.classList.contains("on");
+  setToggleState(clickResetsToggle, !isOn);
+  chrome.runtime.sendMessage({ type: "setConfig", clickResetsTimer: !isOn });
 });
 
 function saveConfig() {

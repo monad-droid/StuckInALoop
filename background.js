@@ -4,6 +4,7 @@ const DEFAULTS = {
   snoozeDurationMin: 5,
   navResetsTimer: true,
   ytPausesTimer: true,
+  clickResetsTimer: true,
 };
 
 let config = { ...DEFAULTS };
@@ -36,7 +37,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Load persisted state and config
 chrome.storage.local.get(
-  ["enabled", "loopThresholdMin", "minTabSwitches", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "lastTypingTime", "notifiedAt", "tabSwitches"],
+  ["enabled", "loopThresholdMin", "minTabSwitches", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "lastTypingTime", "notifiedAt", "tabSwitches"],
   (result) => {
     if (result.enabled !== undefined) {
       state.enabled = result.enabled;
@@ -55,6 +56,9 @@ chrome.storage.local.get(
     }
     if (result.ytPausesTimer !== undefined) {
       config.ytPausesTimer = result.ytPausesTimer;
+    }
+    if (result.clickResetsTimer !== undefined) {
+      config.clickResetsTimer = result.clickResetsTimer;
     }
     // Restore persisted state so it survives service worker restarts
     if (result.lastTypingTime) {
@@ -161,6 +165,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     persistState();
     scheduleLoopCheck();
     sendResponse({ ok: true });
+  } else if (message.type === "click") {
+    if (config.clickResetsTimer) {
+      if (state.pausedForVideo) {
+        state.lastTypingTime = Date.now();
+        state.pausedAt = Date.now();
+      } else {
+        state.lastTypingTime = Date.now();
+      }
+      persistState();
+      scheduleLoopCheck();
+    }
+    sendResponse({ ok: true });
   } else if (message.type === "ytVideo") {
     // User navigated to a YouTube video — track the tab but don't pause yet.
     // Pause only happens when the video actually starts playing (audible).
@@ -192,6 +208,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       snoozeDurationMin: config.snoozeDurationMin,
       navResetsTimer: config.navResetsTimer,
       ytPausesTimer: config.ytPausesTimer,
+      clickResetsTimer: config.clickResetsTimer,
     });
   } else if (message.type === "setEnabled") {
     state.enabled = message.enabled;
@@ -261,6 +278,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.ytPausesTimer !== undefined) {
       config.ytPausesTimer = message.ytPausesTimer;
       chrome.storage.local.set({ ytPausesTimer: config.ytPausesTimer });
+    }
+    if (message.clickResetsTimer !== undefined) {
+      config.clickResetsTimer = message.clickResetsTimer;
+      chrome.storage.local.set({ clickResetsTimer: config.clickResetsTimer });
     }
     scheduleLoopCheck();
     sendResponse({ ok: true });

@@ -34,7 +34,13 @@ document.addEventListener("keydown", (e) => {
 });
 
 // Clicks (navigating subsections, links, buttons) count as activity
-document.addEventListener("click", reportActivity);
+let clickTimeout = null;
+document.addEventListener("click", () => {
+  if (!clickTimeout) {
+    chrome.runtime.sendMessage({ type: "click" }).catch(() => {});
+    clickTimeout = setTimeout(() => { clickTimeout = null; }, 2000);
+  }
+});
 
 // YouTube video detection — YouTube is an SPA so we need to watch for URL changes
 if (location.hostname === "www.youtube.com" || location.hostname === "youtube.com") {
