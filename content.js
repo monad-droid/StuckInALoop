@@ -69,6 +69,8 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
     <div id="stuck-loop-ambient-1"></div>
     <div id="stuck-loop-ambient-2"></div>
     <div id="stuck-in-loop-card">
+      <div id="stuck-loop-border-glow"></div>
+      <div id="stuck-loop-border-beam"></div>
       <div id="stuck-loop-icon-wrap">
         <div id="stuck-loop-icon-glow"></div>
         <div id="stuck-loop-icon-box">
@@ -155,56 +157,60 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
       overflow: hidden;
     }
 
-    #stuck-in-loop-card::before {
-      content: '';
+    #stuck-loop-border-beam,
+    #stuck-loop-border-glow {
       position: absolute;
-      inset: 0;
-      border-radius: 32px;
-      padding: 2px;
+      top: 50%;
+      left: 50%;
+      width: 150%;
+      height: 150%;
+      pointer-events: none;
+      animation: stuck-beam-spin 3s linear infinite;
+    }
+
+    #stuck-loop-border-beam {
+      z-index: 1;
       background: conic-gradient(
-        from var(--beam-angle, 0deg),
+        from 0deg,
         transparent 0deg,
         transparent 300deg,
         rgba(67, 85, 185, 0.15) 330deg,
         rgba(67, 85, 185, 0.6) 350deg,
         rgba(133, 150, 255, 1) 360deg
       );
-      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      -webkit-mask-composite: xor;
-      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      mask-composite: exclude;
-      animation: stuck-beam-rotate 3s linear infinite;
-      pointer-events: none;
-      z-index: 1;
     }
 
-    #stuck-in-loop-card::after {
-      content: '';
-      position: absolute;
-      inset: -8px;
-      border-radius: 40px;
+    #stuck-loop-border-glow {
+      z-index: -1;
+      filter: blur(12px);
       background: conic-gradient(
-        from var(--beam-angle, 0deg),
+        from 0deg,
         transparent 0deg,
         transparent 320deg,
         rgba(133, 150, 255, 0.3) 350deg,
         rgba(133, 150, 255, 0.15) 360deg
       );
-      filter: blur(12px);
-      animation: stuck-beam-rotate 3s linear infinite;
-      pointer-events: none;
-      z-index: -1;
     }
 
-    @property --beam-angle {
-      syntax: '<angle>';
-      initial-value: 0deg;
-      inherits: false;
+    /* Mask the beam to only show as a border */
+    #stuck-in-loop-card::before {
+      content: '';
+      position: absolute;
+      inset: 2px;
+      background: #fff;
+      border-radius: 30px;
+      z-index: 1;
     }
 
-    @keyframes stuck-beam-rotate {
-      from { --beam-angle: 0deg; }
-      to { --beam-angle: 360deg; }
+    /* Ensure card content sits above the mask */
+    #stuck-in-loop-card > *:not(#stuck-loop-border-beam):not(#stuck-loop-border-glow) {
+      position: relative;
+      z-index: 2;
+    }
+
+    @keyframes stuck-beam-spin {
+      from { transform: translate(-50%, -50%) rotate(0deg); }
+      to { transform: translate(-50%, -50%) rotate(360deg); }
     }
 
     #stuck-loop-icon-wrap {
