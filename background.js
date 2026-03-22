@@ -15,28 +15,58 @@ let state = {
   pausedForVideo: false, // true when actively playing a YouTube video
   pausedAt: 0, // timestamp when pause started (to freeze the timer)
   videoTabId: null, // tab ID of the YouTube video we're tracking
+  ready: false, // true once persisted state has been loaded
 };
 
 // Load persisted state and config
-chrome.storage.local.get(["enabled", "loopThresholdMin", "minTabSwitches", "navResetsTimer", "ytPausesTimer"], (result) => {
-  if (result.enabled !== undefined) {
-    state.enabled = result.enabled;
+chrome.storage.local.get(
+  ["enabled", "loopThresholdMin", "minTabSwitches", "navResetsTimer", "ytPausesTimer", "lastTypingTime", "notifiedAt", "tabSwitches"],
+  (result) => {
+    if (result.enabled !== undefined) {
+      state.enabled = result.enabled;
+    }
+    if (result.loopThresholdMin !== undefined) {
+      config.loopThresholdMin = result.loopThresholdMin;
+    }
+    if (result.minTabSwitches !== undefined) {
+      config.minTabSwitches = result.minTabSwitches;
+    }
+    if (result.navResetsTimer !== undefined) {
+      config.navResetsTimer = result.navResetsTimer;
+    }
+    if (result.ytPausesTimer !== undefined) {
+      config.ytPausesTimer = result.ytPausesTimer;
+    }
+    // Restore persisted state so it survives service worker restarts
+    if (result.lastTypingTime) {
+      state.lastTypingTime = result.lastTypingTime;
+    }
+    if (result.notifiedAt) {
+      state.notifiedAt = result.notifiedAt;
+    }
+    if (result.tabSwitches) {
+      state.tabSwitches = result.tabSwitches;
+    }
+    state.ready = true;
+    console.log("[StuckInALoop] SW started, restored state:", {
+      lastTypingTimeAgoSec: Math.round((Date.now() - state.lastTypingTime) / 1000),
+      notifiedAtAgoSec: Math.round((Date.now() - state.notifiedAt) / 1000),
+      tabSwitches: state.tabSwitches.length,
+      enabled: state.enabled,
+    });
+    // Run an immediate check now that state is loaded
+    checkForLoop();
   }
-  if (result.loopThresholdMin !== undefined) {
-    config.loopThresholdMin = result.loopThresholdMin;
-  }
-  if (result.minTabSwitches !== undefined) {
-    config.minTabSwitches = result.minTabSwitches;
-  }
-  if (result.navResetsTimer !== undefined) {
-    config.navResetsTimer = result.navResetsTimer;
-  }
-  if (result.ytPausesTimer !== undefined) {
-    config.ytPausesTimer = result.ytPausesTimer;
-  }
-  // Always reset lastTypingTime on service worker start
-  state.lastTypingTime = Date.now();
-});
+);
+
+// Persist timing state to storage so it survives service worker restarts
+function persistState() {
+  chrome.storage.local.set({
+    lastTypingTime: state.lastTypingTime,
+    notifiedAt: state.notifiedAt,
+    tabSwitches: state.tabSwitches,
+  });
+}
 
 // Track tab switches
 chrome.tabs.onActivated.addListener((activeInfo) => {
@@ -46,6 +76,7 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
   if (!state.pausedForVideo) {
     state.tabSwitches.push(Date.now());
     pruneOldSwitches();
+    persistState();
   }
 
   checkForLoop();
@@ -66,6 +97,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     state.pausedForVideo = true;
     state.pausedAt = Date.now();
     state.videoTabId = tabId;
+    persistState();
   } else if (!changeInfo.audible && state.pausedForVideo && state.videoTabId === tabId) {
     // Video stopped playing (paused, ended, muted) — unpause
     unPauseVideo();
@@ -78,6 +110,7 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
   if (windowId !== chrome.windows.WINDOW_ID_NONE) {
     state.tabSwitches.push(Date.now());
     pruneOldSwitches();
+    persistState();
   }
 });
 
@@ -101,6 +134,7 @@ chrome.webNavigation.onCommitted.addListener((details) => {
     details.transitionQualifiers.includes("from_address_bar")
   ) {
     state.lastTypingTime = Date.now();
+    persistState();
   }
 });
 
@@ -114,6 +148,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     } else {
       state.lastTypingTime = Date.now();
     }
+    persistState();
     sendResponse({ ok: true });
   } else if (message.type === "ytVideo") {
     // User navigated to a YouTube video — track the tab but don't pause yet.
@@ -158,6 +193,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     state.pausedForVideo = false;
     state.pausedAt = 0;
     state.videoTabId = null;
+    persistState();
     sendResponse({ ok: true });
   } else if (message.type === "dismiss") {
     // User acknowledged the alert — reset everything
@@ -167,6 +203,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     state.pausedForVideo = false;
     state.pausedAt = 0;
     state.videoTabId = null;
+    persistState();
     sendResponse({ ok: true });
   } else if (message.type === "setConfig") {
     if (message.loopThresholdMin !== undefined) {
@@ -210,6 +247,7 @@ function unPauseVideo() {
   state.lastTypingTime += pauseDuration;
   state.pausedForVideo = false;
   state.pausedAt = 0;
+  persistState();
 }
 
 function pruneOldSwitches() {
@@ -232,7 +270,7 @@ function isInLoop() {
 }
 
 function checkForLoop() {
-  if (!state.enabled) return;
+  if (!state.enabled || !state.ready) return;
 
   const now = Date.now();
   const NOTIFY_COOLDOWN_MS = 5 * 60 * 1000; // don't re-notify within 5min
@@ -260,6 +298,7 @@ function triggerAlert() {
 
   // Set cooldown immediately to prevent repeated triggers
   state.notifiedAt = Date.now();
+  persistState();
 
   // Always show browser notification (works on any page)
   chrome.notifications.create("loop-alert-" + Date.now(), {
