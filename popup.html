@@ -287,6 +287,69 @@
     .toggle-btn.on .toggle-knob { margin-left: auto; }
     .toggle-btn.off .toggle-knob { margin-left: 0; }
 
+    /* Inactive Periods */
+    .inactive-periods { padding-top: 8px; }
+    .inactive-period-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      background: #fff;
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+    .inactive-period-row select {
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 6px 8px;
+      border: 1px solid #d9dadb;
+      border-radius: 6px;
+      background: #f8f9fa;
+      color: #191c1d;
+      cursor: pointer;
+      outline: none;
+    }
+    .inactive-period-row select:focus { border-color: #000666; }
+    .inactive-period-row .period-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: #767683;
+    }
+    .inactive-period-row .remove-period {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      padding: 2px;
+      border-radius: 4px;
+      margin-left: auto;
+    }
+    .inactive-period-row .remove-period:hover { color: #dc2626; }
+    .inactive-period-row.all-day-row {
+      justify-content: space-between;
+    }
+    .add-period-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: none;
+      border: 1px dashed #c6c5d4;
+      border-radius: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      color: #4355b9;
+      font-size: 12px;
+      font-weight: 500;
+      font-family: 'Inter', sans-serif;
+      width: 100%;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+    .add-period-btn:hover { background: #f0f0ff; }
+
     /* Session Stats */
     .stats-card {
       background: rgba(225, 227, 228, 0.5);
@@ -411,6 +474,18 @@
             <div class="toggle-knob"></div>
           </button>
         </div>
+      </div>
+      <!-- Inactive Periods -->
+      <div class="inactive-periods" style="margin-top: 16px;">
+        <div class="config-card-header">
+          <label>Inactive periods</label>
+          <span class="config-badge" id="inactive-badge">1 block</span>
+        </div>
+        <div id="inactive-periods-list"></div>
+        <button class="add-period-btn" id="add-period-btn">
+          <span class="material-symbols-outlined" style="font-size: 16px;">add</span>
+          Add inactive period
+        </button>
       </div>
     </section>
 

@@ -17,10 +17,14 @@ const snoozeBadge = document.getElementById("snooze-badge");
 const navResetsToggle = document.getElementById("nav-resets-toggle");
 const ytPauseToggle = document.getElementById("yt-pause-toggle");
 const clickResetsToggle = document.getElementById("click-resets-toggle");
+const inactiveList = document.getElementById("inactive-periods-list");
+const inactiveBadge = document.getElementById("inactive-badge");
+const addPeriodBtn = document.getElementById("add-period-btn");
 
 let currentEnabled = true;
 let currentMinSwitches = 0;
 const MAX_SWITCHES = 20;
+let currentInactivePeriods = [{ start: 8, end: 17 }];
 
 function formatTimer(ms) {
   if (ms < 0) ms = 0;
@@ -55,6 +59,100 @@ function setEnabledUI(enabled) {
   statusPing.classList.toggle("inactive", !enabled);
 }
 
+function formatHour(h) {
+  if (h === 0 || h === 24) return "12 AM";
+  if (h === 12) return "12 PM";
+  return h < 12 ? h + " AM" : (h - 12) + " PM";
+}
+
+function buildHourOptions(selected) {
+  let html = "";
+  for (let h = 0; h <= 24; h++) {
+    const label = h === 24 ? "12 AM (next day)" : formatHour(h);
+    html += `<option value="${h}" ${h === selected ? "selected" : ""}>${label}</option>`;
+  }
+  return html;
+}
+
+function renderInactivePeriods() {
+  inactiveList.innerHTML = "";
+  const allDay = currentInactivePeriods.some((p) => p.start === 0 && p.end === 24);
+
+  currentInactivePeriods.forEach((period, i) => {
+    const row = document.createElement("div");
+    row.className = "inactive-period-row";
+
+    if (period.start === 0 && period.end === 24) {
+      row.classList.add("all-day-row");
+      row.innerHTML = `
+        <span style="font-size:12px;font-weight:500;color:#191c1d;">All day</span>
+        <button class="remove-period" data-index="${i}" title="Remove">
+          <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+        </button>
+      `;
+    } else {
+      row.innerHTML = `
+        <select class="period-start" data-index="${i}">${buildHourOptions(period.start)}</select>
+        <span class="period-label">to</span>
+        <select class="period-end" data-index="${i}">${buildHourOptions(period.end)}</select>
+        <button class="remove-period" data-index="${i}" title="Remove">
+          <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+        </button>
+      `;
+    }
+    inactiveList.appendChild(row);
+  });
+
+  // Update badge
+  if (currentInactivePeriods.length === 0) {
+    inactiveBadge.textContent = "none";
+  } else if (allDay) {
+    inactiveBadge.textContent = "all day";
+  } else {
+    const n = currentInactivePeriods.length;
+    inactiveBadge.textContent = n + (n === 1 ? " block" : " blocks");
+  }
+
+  // Bind events
+  inactiveList.querySelectorAll(".period-start").forEach((sel) => {
+    sel.addEventListener("change", (e) => {
+      const idx = parseInt(e.target.dataset.index);
+      currentInactivePeriods[idx].start = parseInt(e.target.value);
+      saveInactivePeriods();
+    });
+  });
+  inactiveList.querySelectorAll(".period-end").forEach((sel) => {
+    sel.addEventListener("change", (e) => {
+      const idx = parseInt(e.target.dataset.index);
+      currentInactivePeriods[idx].end = parseInt(e.target.value);
+      saveInactivePeriods();
+    });
+  });
+  inactiveList.querySelectorAll(".remove-period").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const idx = parseInt(e.currentTarget.dataset.index);
+      currentInactivePeriods.splice(idx, 1);
+      saveInactivePeriods();
+      renderInactivePeriods();
+    });
+  });
+}
+
+function saveInactivePeriods() {
+  chrome.runtime.sendMessage({ type: "setConfig", inactivePeriods: currentInactivePeriods });
+}
+
+addPeriodBtn.addEventListener("click", () => {
+  // If no periods exist, add default 8-17. Otherwise add an evening block.
+  if (currentInactivePeriods.length === 0) {
+    currentInactivePeriods.push({ start: 8, end: 17 });
+  } else {
+    currentInactivePeriods.push({ start: 0, end: 24 });
+  }
+  saveInactivePeriods();
+  renderInactivePeriods();
+});
+
 function update() {
   chrome.runtime.sendMessage({ type: "getState" }, (response) => {
     if (!response) return;
@@ -78,6 +176,15 @@ function update() {
     setToggleState(ytPauseToggle, response.ytPausesTimer);
     setToggleState(clickResetsToggle, response.clickResetsTimer);
 
+    // Sync inactive periods (only re-render if changed)
+    if (response.inactivePeriods !== undefined) {
+      const newJson = JSON.stringify(response.inactivePeriods);
+      if (newJson !== JSON.stringify(currentInactivePeriods)) {
+        currentInactivePeriods = response.inactivePeriods;
+        renderInactivePeriods();
+      }
+    }
+
     if (!response.enabled) {
       statusEl.textContent = "Off";
       statusEl.className = "state-value";
@@ -94,7 +201,11 @@ function update() {
 
     const warningThreshold = response.loopThresholdMin * 0.66 * 60 * 1000;
 
-    if (response.pausedForVideo) {
+    if (response.isInInactivePeriod) {
+      statusEl.textContent = "Inactive Period";
+      statusEl.className = "state-value";
+      statusSubtitle.textContent = "Monitoring paused";
+    } else if (response.pausedForVideo) {
       statusEl.textContent = "Watching Video";
       statusEl.className = "state-value";
       statusSubtitle.textContent = "Timer paused for playback";
@@ -182,5 +293,6 @@ function saveConfig() {
   });
 }
 
+renderInactivePeriods();
 update();
 setInterval(update, 1000);

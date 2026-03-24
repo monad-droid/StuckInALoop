@@ -5,6 +5,7 @@ const DEFAULTS = {
   navResetsTimer: true,
   ytPausesTimer: true,
   clickResetsTimer: false,
+  inactivePeriods: [{ start: 8, end: 17 }], // default: don't monitor 8am–5pm
 };
 
 let config = { ...DEFAULTS };
@@ -39,7 +40,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Load persisted state and config
 chrome.storage.local.get(
-  ["enabled", "loopThresholdMin", "minTabSwitches", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "lastTypingTime", "notifiedAt", "tabSwitches", "snoozedAt"],
+  ["enabled", "loopThresholdMin", "minTabSwitches", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "lastTypingTime", "notifiedAt", "tabSwitches", "snoozedAt"],
   (result) => {
     if (result.enabled !== undefined) {
       state.enabled = result.enabled;
@@ -61,6 +62,9 @@ chrome.storage.local.get(
     }
     if (result.clickResetsTimer !== undefined) {
       config.clickResetsTimer = result.clickResetsTimer;
+    }
+    if (result.inactivePeriods !== undefined) {
+      config.inactivePeriods = result.inactivePeriods;
     }
     // Restore persisted state so it survives service worker restarts
     if (result.lastTypingTime) {
@@ -245,6 +249,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         navResetsTimer: config.navResetsTimer,
         ytPausesTimer: config.ytPausesTimer,
         clickResetsTimer: config.clickResetsTimer,
+        inactivePeriods: config.inactivePeriods,
+        isInInactivePeriod: isInInactivePeriod(),
       });
     });
   } else if (message.type === "setEnabled") {
@@ -388,6 +394,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       config.clickResetsTimer = message.clickResetsTimer;
       chrome.storage.local.set({ clickResetsTimer: config.clickResetsTimer });
     }
+    if (message.inactivePeriods !== undefined) {
+      config.inactivePeriods = message.inactivePeriods;
+      chrome.storage.local.set({ inactivePeriods: config.inactivePeriods });
+    }
     scheduleLoopCheck();
     sendResponse({ ok: true });
   }
@@ -450,6 +460,19 @@ function unPauseVideo() {
   scheduleLoopCheck();
 }
 
+// Check if the current time falls within any configured inactive period
+function isInInactivePeriod() {
+  if (!config.inactivePeriods || config.inactivePeriods.length === 0) return false;
+  const hour = new Date().getHours();
+  return config.inactivePeriods.some((p) => {
+    if (p.start <= p.end) {
+      return hour >= p.start && hour < p.end;
+    }
+    // Wraps midnight (e.g. 22–6)
+    return hour >= p.start || hour < p.end;
+  });
+}
+
 function pruneOldSwitches() {
   const windowMs = config.loopThresholdMin * 60 * 1000;
   const cutoff = Date.now() - windowMs;
@@ -457,7 +480,7 @@ function pruneOldSwitches() {
 }
 
 function isInLoop() {
-  if (state.pausedForVideo) return false;
+  if (state.pausedForVideo || isInInactivePeriod()) return false;
   const now = Date.now();
   const timeSinceTyping = now - state.lastTypingTime;
   const thresholdMs = config.loopThresholdMin * 60 * 1000;
@@ -470,7 +493,7 @@ function isInLoop() {
 }
 
 function checkForLoop() {
-  if (!state.enabled || !state.ready) return;
+  if (!state.enabled || !state.ready || isInInactivePeriod()) return;
 
   const now = Date.now();
   const NOTIFY_COOLDOWN_MS = 2 * 60 * 1000; // don't re-notify within 2min
