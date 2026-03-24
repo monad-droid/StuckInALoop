@@ -40,7 +40,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Load persisted state and config
 chrome.storage.local.get(
-  ["enabled", "loopThresholdMin", "minTabSwitches", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "lastTypingTime", "notifiedAt", "tabSwitches", "snoozedAt"],
+  ["enabled", "loopThresholdMin", "minTabSwitches", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "lastTypingTime", "notifiedAt", "tabSwitches", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId"],
   (result) => {
     if (result.enabled !== undefined) {
       state.enabled = result.enabled;
@@ -79,10 +79,21 @@ chrome.storage.local.get(
     if (result.snoozedAt) {
       state.snoozedAt = result.snoozedAt;
     }
+    if (result.pausedForVideo) {
+      state.pausedForVideo = result.pausedForVideo;
+    }
+    if (result.pausedAt) {
+      state.pausedAt = result.pausedAt;
+    }
+    if (result.videoTabId != null) {
+      state.videoTabId = result.videoTabId;
+    }
     state.ready = true;
-    // Run an immediate check now that state is loaded
-    checkForLoop();
-    scheduleLoopCheck();
+    // Validate video state after restart (tab may have closed/stopped)
+    validateVideoState().then(() => {
+      checkForLoop();
+      scheduleLoopCheck();
+    });
   }
 );
 
@@ -93,6 +104,9 @@ function persistState() {
     notifiedAt: state.notifiedAt,
     tabSwitches: state.tabSwitches,
     snoozedAt: state.snoozedAt,
+    pausedForVideo: state.pausedForVideo,
+    pausedAt: state.pausedAt,
+    videoTabId: state.videoTabId,
   });
 }
 
