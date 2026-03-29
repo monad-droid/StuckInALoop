@@ -411,6 +411,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         config.snoozeDurationMin = Math.max(0, config.loopThresholdMin - 1);
         chrome.storage.local.set({ snoozeDurationMin: config.snoozeDurationMin });
       }
+      // If mid-snooze, recalculate offsets for the new threshold
+      if (state.snoozedAt > 0) {
+        const elapsed = Date.now() - state.snoozedAt;
+        const snoozeCooldownMs = config.snoozeDurationMin * 60 * 1000;
+        const remainingSnooze = Math.max(0, snoozeCooldownMs - elapsed);
+        const thresholdMs = config.loopThresholdMin * 60 * 1000;
+        const NOTIFY_COOLDOWN_MS = 2 * 60 * 1000;
+        state.lastTypingTime = Date.now() - thresholdMs + remainingSnooze;
+        state.notifiedAt = Date.now() - NOTIFY_COOLDOWN_MS + remainingSnooze;
+        persistState();
+        scheduleLoopCheck();
+      }
     }
     if (message.minTabSwitches !== undefined) {
       config.minTabSwitches = message.minTabSwitches;
