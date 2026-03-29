@@ -214,11 +214,11 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   }
 });
 
-// When navResetsTimer is on, typing a URL in the address bar resets the
-// inactivity timer — the user is actively doing something intentional.
+// When navResetsTimer is on, any main-frame navigation resets the inactivity
+// timer — the user is actively browsing, not zoned out.
 chrome.webNavigation.onCommitted.addListener((details) => {
   if (!state.enabled || !config.navResetsTimer) return;
-  const validTypes = ["typed", "generated", "form_submit"];
+  const validTypes = ["typed", "generated", "form_submit", "link", "auto_bookmark"];
   if (details.frameId === 0 && validTypes.includes(details.transitionType)) {
     state.lastTypingTime = Date.now();
     persistState();
