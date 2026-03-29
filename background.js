@@ -5,7 +5,7 @@ const DEFAULTS = {
   navResetsTimer: true,
   ytPausesTimer: true,
   clickResetsTimer: false,
-  inactivePeriods: [{ start: 8, end: 17 }], // default: don't monitor 8am–5pm
+  inactivePeriods: [{ start: 8, end: 17, days: [0, 1, 2, 3, 4, 5, 6] }], // default: don't monitor 8am–5pm, all days
 };
 
 let config = { ...DEFAULTS };
@@ -40,7 +40,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Load persisted state and config
 chrome.storage.local.get(
-  ["enabled", "loopThresholdMin", "minTabSwitches", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "lastTypingTime", "notifiedAt", "tabSwitches", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId"],
+  ["enabled", "loopThresholdMin", "minTabSwitches", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "lastTypingTime", "notifiedAt", "tabSwitches", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId", "lastHeartbeat"],
   (result) => {
     if (result.enabled !== undefined) {
       state.enabled = result.enabled;
@@ -88,6 +88,23 @@ chrome.storage.local.get(
     if (result.videoTabId != null) {
       state.videoTabId = result.videoTabId;
     }
+    // Detect sleep/suspend: if the gap since last heartbeat is large,
+    // the laptop was likely closed. Reset timers so we don't false-alert.
+    const SLEEP_GAP_MS = 60 * 1000; // 60s — heartbeat writes every 25s
+    const storedHeartbeat = result.lastHeartbeat || 0;
+    const gap = Date.now() - storedHeartbeat;
+    if (storedHeartbeat > 0 && gap > SLEEP_GAP_MS && state.enabled) {
+      state.lastTypingTime = Date.now();
+      state.sessionStartTime = Date.now();
+      state.snoozedAt = 0;
+      state.tabSwitches = [];
+      state.notifiedAt = 0;
+      state.pausedForVideo = false;
+      state.pausedAt = 0;
+      state.videoTabId = null;
+      persistState();
+    }
+
     state.ready = true;
     // Validate video state after restart (tab may have closed/stopped)
     validateVideoState().then(() => {
@@ -96,6 +113,16 @@ chrome.storage.local.get(
     });
   }
 );
+
+// Track the last time the service worker was alive, so we can detect sleep gaps
+let lastHeartbeat = Date.now();
+function persistHeartbeat() {
+  lastHeartbeat = Date.now();
+  chrome.storage.local.set({ lastHeartbeat });
+}
+// Write heartbeat every 25s so we can detect gaps > ~30s (i.e. sleep)
+setInterval(persistHeartbeat, 25000);
+persistHeartbeat();
 
 // Persist timing state to storage so it survives service worker restarts
 function persistState() {
@@ -443,7 +470,23 @@ function scheduleLoopCheck() {
 chrome.alarms.create("loopCheck", { periodInMinutes: 0.5 });
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "loopCheck" && state.enabled) {
-    checkForLoop();
+    // If the alarm fires after a long gap (sleep/suspend), reset instead of alerting
+    const gap = Date.now() - lastHeartbeat;
+    if (gap > 60000) {
+      state.lastTypingTime = Date.now();
+      state.sessionStartTime = Date.now();
+      state.snoozedAt = 0;
+      state.tabSwitches = [];
+      state.notifiedAt = 0;
+      state.pausedForVideo = false;
+      state.pausedAt = 0;
+      state.videoTabId = null;
+      persistState();
+      scheduleLoopCheck();
+    } else {
+      checkForLoop();
+    }
+    persistHeartbeat();
   }
 });
 
@@ -477,8 +520,13 @@ function unPauseVideo() {
 // Check if the current time falls within any configured inactive period
 function isInInactivePeriod() {
   if (!config.inactivePeriods || config.inactivePeriods.length === 0) return false;
-  const hour = new Date().getHours();
+  const now = new Date();
+  const hour = now.getHours();
+  const day = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
   return config.inactivePeriods.some((p) => {
+    // Check day of week (default to all days for legacy periods without days)
+    const days = p.days || [0, 1, 2, 3, 4, 5, 6];
+    if (!days.includes(day)) return false;
     if (p.start <= p.end) {
       return hour >= p.start && hour < p.end;
     }

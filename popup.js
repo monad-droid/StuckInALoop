@@ -24,7 +24,8 @@ const addPeriodBtn = document.getElementById("add-period-btn");
 let currentEnabled = true;
 let currentMinSwitches = 0;
 const MAX_SWITCHES = 20;
-let currentInactivePeriods = [{ start: 8, end: 17 }];
+let currentInactivePeriods = [{ start: 8, end: 17, days: [0, 1, 2, 3, 4, 5, 6] }];
+const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 
 function formatTimer(ms) {
   if (ms < 0) ms = 0;
@@ -74,6 +75,14 @@ function buildHourOptions(selected) {
   return html;
 }
 
+function buildDayChips(periodIndex, activeDays) {
+  const days = activeDays || [0, 1, 2, 3, 4, 5, 6];
+  return DAY_LABELS.map((label, dayNum) => {
+    const active = days.includes(dayNum) ? "active" : "";
+    return `<button class="day-chip ${active}" data-period="${periodIndex}" data-day="${dayNum}">${label}</button>`;
+  }).join("");
+}
+
 function renderInactivePeriods() {
   inactiveList.innerHTML = "";
   const allDay = currentInactivePeriods.some((p) => p.start === 0 && p.end === 24);
@@ -81,14 +90,17 @@ function renderInactivePeriods() {
   currentInactivePeriods.forEach((period, i) => {
     const row = document.createElement("div");
     row.className = "inactive-period-row";
+    row.style.flexWrap = "wrap";
 
     if (period.start === 0 && period.end === 24) {
       row.classList.add("all-day-row");
+      row.style.flexWrap = "wrap";
       row.innerHTML = `
         <span style="font-size:12px;font-weight:500;color:#191c1d;">All day</span>
         <button class="remove-period" data-index="${i}" title="Remove">
           <span class="material-symbols-outlined" style="font-size:18px;">close</span>
         </button>
+        <div class="day-chips" style="width:100%;">${buildDayChips(i, period.days)}</div>
       `;
     } else {
       row.innerHTML = `
@@ -98,6 +110,7 @@ function renderInactivePeriods() {
         <button class="remove-period" data-index="${i}" title="Remove">
           <span class="material-symbols-outlined" style="font-size:18px;">close</span>
         </button>
+        <div class="day-chips" style="width:100%;">${buildDayChips(i, period.days)}</div>
       `;
     }
     inactiveList.appendChild(row);
@@ -113,7 +126,7 @@ function renderInactivePeriods() {
     inactiveBadge.textContent = n + (n === 1 ? " block" : " blocks");
   }
 
-  // Bind events
+  // Bind time select events
   inactiveList.querySelectorAll(".period-start").forEach((sel) => {
     sel.addEventListener("change", (e) => {
       const idx = parseInt(e.target.dataset.index);
@@ -128,10 +141,29 @@ function renderInactivePeriods() {
       saveInactivePeriods();
     });
   });
+  // Bind remove buttons
   inactiveList.querySelectorAll(".remove-period").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       const idx = parseInt(e.currentTarget.dataset.index);
       currentInactivePeriods.splice(idx, 1);
+      saveInactivePeriods();
+      renderInactivePeriods();
+    });
+  });
+  // Bind day chip toggles
+  inactiveList.querySelectorAll(".day-chip").forEach((chip) => {
+    chip.addEventListener("click", (e) => {
+      const pi = parseInt(e.target.dataset.period);
+      const day = parseInt(e.target.dataset.day);
+      const period = currentInactivePeriods[pi];
+      if (!period.days) period.days = [0, 1, 2, 3, 4, 5, 6];
+      const idx = period.days.indexOf(day);
+      if (idx >= 0) {
+        period.days.splice(idx, 1);
+      } else {
+        period.days.push(day);
+        period.days.sort();
+      }
       saveInactivePeriods();
       renderInactivePeriods();
     });
@@ -143,11 +175,10 @@ function saveInactivePeriods() {
 }
 
 addPeriodBtn.addEventListener("click", () => {
-  // If no periods exist, add default 8-17. Otherwise add an evening block.
   if (currentInactivePeriods.length === 0) {
-    currentInactivePeriods.push({ start: 8, end: 17 });
+    currentInactivePeriods.push({ start: 8, end: 17, days: [0, 1, 2, 3, 4, 5, 6] });
   } else {
-    currentInactivePeriods.push({ start: 0, end: 24 });
+    currentInactivePeriods.push({ start: 0, end: 24, days: [0, 1, 2, 3, 4, 5, 6] });
   }
   saveInactivePeriods();
   renderInactivePeriods();

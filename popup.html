@@ -331,6 +331,34 @@
     .inactive-period-row.all-day-row {
       justify-content: space-between;
     }
+    .day-chips {
+      display: flex;
+      gap: 4px;
+      margin-top: 6px;
+    }
+    .day-chip {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 1px solid #d9dadb;
+      background: #f8f9fa;
+      font-size: 10px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      color: #767683;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      padding: 0;
+    }
+    .day-chip.active {
+      background: #000666;
+      color: #fff;
+      border-color: #000666;
+    }
+    .day-chip:hover { border-color: #4355b9; }
     .add-period-btn {
       display: flex;
       align-items: center;
