@@ -15,6 +15,7 @@ const snoozeBadge = document.getElementById("snooze-badge");
 const navResetsToggle = document.getElementById("nav-resets-toggle");
 const ytPauseToggle = document.getElementById("yt-pause-toggle");
 const clickResetsToggle = document.getElementById("click-resets-toggle");
+const chromeFocusToggle = document.getElementById("chrome-focus-toggle");
 const inactiveList = document.getElementById("inactive-periods-list");
 const inactiveBadge = document.getElementById("inactive-badge");
 const addPeriodBtn = document.getElementById("add-period-btn");
@@ -28,6 +29,7 @@ let currentMinSwitches = 0;
 const MAX_SWITCHES = 20;
 let currentInactivePeriods = [{ start: 8, end: 17, days: [0, 1, 2, 3, 4, 5, 6] }];
 let currentIgnoredSites = []; // [{domain, action: "pause"|"reset"}]
+let currentChromeFocusLost = "pause";
 const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 
 function formatTimer(ms) {
@@ -281,6 +283,12 @@ function update() {
     setToggleState(ytPauseToggle, response.ytPausesTimer);
     setToggleState(clickResetsToggle, response.clickResetsTimer);
 
+    // Sync Chrome focus setting
+    if (response.chromeFocusLost !== undefined && response.chromeFocusLost !== currentChromeFocusLost) {
+      currentChromeFocusLost = response.chromeFocusLost;
+      updateChromeFocusToggle();
+    }
+
     // Sync inactive periods (only re-render if changed)
     if (response.inactivePeriods !== undefined) {
       const newJson = JSON.stringify(response.inactivePeriods);
@@ -311,7 +319,11 @@ function update() {
 
     const warningThreshold = response.loopThresholdMin * 0.66 * 60 * 1000;
 
-    if (response.onIgnoredSite) {
+    if (response.chromeUnfocused) {
+      statusEl.textContent = "Chrome Unfocused";
+      statusEl.className = "state-value";
+      statusSubtitle.textContent = "Timer " + (response.chromeFocusLost === "pause" ? "paused" : "will reset") + " while away";
+    } else if (response.onIgnoredSite) {
       statusEl.textContent = "Ignored Site";
       statusEl.className = "state-value";
       statusSubtitle.textContent = "Tracking paused for this site";
@@ -391,6 +403,24 @@ clickResetsToggle.addEventListener("click", () => {
   const isOn = clickResetsToggle.classList.contains("on");
   setToggleState(clickResetsToggle, !isOn);
   chrome.runtime.sendMessage({ type: "setConfig", clickResetsTimer: !isOn });
+});
+
+// Chrome focus lost toggle
+function updateChromeFocusToggle() {
+  const pauseBtn = chromeFocusToggle.querySelector(".chrome-focus-pause");
+  const resetBtn = chromeFocusToggle.querySelector(".chrome-focus-reset");
+  pauseBtn.classList.toggle("active", currentChromeFocusLost === "pause");
+  resetBtn.classList.toggle("active", currentChromeFocusLost === "reset");
+}
+chromeFocusToggle.querySelector(".chrome-focus-pause").addEventListener("click", () => {
+  currentChromeFocusLost = "pause";
+  updateChromeFocusToggle();
+  chrome.runtime.sendMessage({ type: "setConfig", chromeFocusLost: "pause" });
+});
+chromeFocusToggle.querySelector(".chrome-focus-reset").addEventListener("click", () => {
+  currentChromeFocusLost = "reset";
+  updateChromeFocusToggle();
+  chrome.runtime.sendMessage({ type: "setConfig", chromeFocusLost: "reset" });
 });
 
 function saveConfig() {

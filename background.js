@@ -7,6 +7,7 @@ const DEFAULTS = {
   clickResetsTimer: false,
   inactivePeriods: [{ start: 8, end: 17, days: [0, 1, 2, 3, 4, 5, 6] }], // default: don't monitor 8am–5pm, all days
   ignoredSites: [], // [{domain, action: "pause"|"reset"}] — sites to skip tracking on
+  chromeFocusLost: "pause", // "pause" or "reset" — what to do when Chrome loses focus
 };
 
 let config = { ...DEFAULTS };
@@ -23,6 +24,7 @@ let state = {
   snoozedAt: 0, // timestamp when snooze started (0 = not snoozing)
   onIgnoredSite: false, // true when active tab is on an ignored site
   ignoredSitePausedAt: 0, // timestamp when ignored-site pause started
+  chromeUnfocusedAt: 0, // timestamp when Chrome lost focus (0 = focused)
   ready: false, // true once persisted state has been loaded
 };
 
@@ -44,7 +46,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Load persisted state and config
 chrome.storage.local.get(
-  ["enabled", "loopThresholdMin", "minTabSwitches", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "ignoredSites", "lastTypingTime", "notifiedAt", "tabSwitches", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId"],
+  ["enabled", "loopThresholdMin", "minTabSwitches", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "ignoredSites", "chromeFocusLost", "lastTypingTime", "notifiedAt", "tabSwitches", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId", "chromeUnfocusedAt"],
   (result) => {
     if (result.enabled !== undefined) {
       state.enabled = result.enabled;
@@ -73,6 +75,9 @@ chrome.storage.local.get(
     if (result.ignoredSites !== undefined) {
       config.ignoredSites = result.ignoredSites;
     }
+    if (result.chromeFocusLost !== undefined) {
+      config.chromeFocusLost = result.chromeFocusLost;
+    }
     // Restore persisted state so it survives service worker restarts
     if (result.lastTypingTime) {
       state.lastTypingTime = result.lastTypingTime;
@@ -95,6 +100,9 @@ chrome.storage.local.get(
     if (result.videoTabId != null) {
       state.videoTabId = result.videoTabId;
     }
+    if (result.chromeUnfocusedAt) {
+      state.chromeUnfocusedAt = result.chromeUnfocusedAt;
+    }
     state.ready = true;
     // Validate video state after restart (tab may have closed/stopped)
     validateVideoState().then(() => {
@@ -114,6 +122,7 @@ function persistState() {
     pausedForVideo: state.pausedForVideo,
     pausedAt: state.pausedAt,
     videoTabId: state.videoTabId,
+    chromeUnfocusedAt: state.chromeUnfocusedAt,
   });
 }
 
@@ -191,13 +200,35 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
-// Track window focus changes (switching between browser windows)
+// Track window focus changes (switching between browser windows or apps)
 chrome.windows.onFocusChanged.addListener((windowId) => {
   if (!state.enabled) return;
-  if (windowId !== chrome.windows.WINDOW_ID_NONE) {
-    state.tabSwitches.push(Date.now());
-    pruneOldSwitches();
-    persistState();
+  if (windowId === chrome.windows.WINDOW_ID_NONE) {
+    // Chrome lost focus to another application
+    if (state.chromeUnfocusedAt === 0) {
+      state.chromeUnfocusedAt = Date.now();
+      persistState();
+    }
+  } else {
+    // Chrome regained focus (or switched between Chrome windows)
+    if (state.chromeUnfocusedAt > 0) {
+      // Returning to Chrome — apply the configured action
+      if (config.chromeFocusLost === "reset") {
+        resetAllTimers();
+      } else {
+        // Pause mode — credit the away time
+        const awayDuration = Date.now() - state.chromeUnfocusedAt;
+        state.lastTypingTime += awayDuration;
+        state.chromeUnfocusedAt = 0;
+        persistState();
+        scheduleLoopCheck();
+      }
+    } else {
+      // Normal switch between Chrome windows
+      state.tabSwitches.push(Date.now());
+      pruneOldSwitches();
+      persistState();
+    }
   }
 });
 
@@ -265,12 +296,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     validateVideoState().then(() => {
       const now = Date.now();
       pruneOldSwitches();
-      // If paused (video or ignored site), report time as frozen at pause point
+      // If paused (video, ignored site, or Chrome unfocused), report time as frozen
       let timeSinceTyping = now - state.lastTypingTime;
       if (state.pausedForVideo) {
         timeSinceTyping = state.pausedAt - state.lastTypingTime;
       } else if (state.onIgnoredSite && state.ignoredSitePausedAt > 0) {
         timeSinceTyping = state.ignoredSitePausedAt - state.lastTypingTime;
+      } else if (state.chromeUnfocusedAt > 0) {
+        timeSinceTyping = state.chromeUnfocusedAt - state.lastTypingTime;
       }
       sendResponse({
         enabled: state.enabled,
@@ -288,6 +321,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         clickResetsTimer: config.clickResetsTimer,
         inactivePeriods: config.inactivePeriods,
         ignoredSites: config.ignoredSites,
+        chromeFocusLost: config.chromeFocusLost,
+        chromeUnfocused: state.chromeUnfocusedAt > 0,
         isInInactivePeriod: isInInactivePeriod(),
       });
     });
@@ -440,6 +475,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       config.ignoredSites = message.ignoredSites;
       chrome.storage.local.set({ ignoredSites: config.ignoredSites });
     }
+    if (message.chromeFocusLost !== undefined) {
+      config.chromeFocusLost = message.chromeFocusLost;
+      chrome.storage.local.set({ chromeFocusLost: config.chromeFocusLost });
+    }
     scheduleLoopCheck();
     sendResponse({ ok: true });
   }
@@ -450,7 +489,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 let loopTimeout = null;
 function scheduleLoopCheck() {
   if (loopTimeout) clearTimeout(loopTimeout);
-  if (!state.enabled || state.pausedForVideo || state.onIgnoredSite) return;
+  if (!state.enabled || state.pausedForVideo || state.onIgnoredSite || state.chromeUnfocusedAt > 0) return;
 
   const thresholdMs = config.loopThresholdMin * 60 * 1000;
   const elapsed = Date.now() - state.lastTypingTime;
@@ -498,6 +537,7 @@ function resetAllTimers() {
   state.videoTabId = null;
   state.onIgnoredSite = false;
   state.ignoredSitePausedAt = 0;
+  state.chromeUnfocusedAt = 0;
   persistState();
   scheduleLoopCheck();
 }
@@ -591,7 +631,7 @@ function pruneOldSwitches() {
 }
 
 function isInLoop() {
-  if (state.pausedForVideo || state.onIgnoredSite || isInInactivePeriod()) return false;
+  if (state.pausedForVideo || state.onIgnoredSite || state.chromeUnfocusedAt > 0 || isInInactivePeriod()) return false;
   const now = Date.now();
   const timeSinceTyping = now - state.lastTypingTime;
   const thresholdMs = config.loopThresholdMin * 60 * 1000;
@@ -604,7 +644,7 @@ function isInLoop() {
 }
 
 function checkForLoop() {
-  if (!state.enabled || !state.ready || state.onIgnoredSite || isInInactivePeriod()) return;
+  if (!state.enabled || !state.ready || state.onIgnoredSite || state.chromeUnfocusedAt > 0 || isInInactivePeriod()) return;
 
   const now = Date.now();
   const NOTIFY_COOLDOWN_MS = 2 * 60 * 1000; // don't re-notify within 2min
