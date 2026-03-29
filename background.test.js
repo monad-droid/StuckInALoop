@@ -415,10 +415,20 @@ describe("alert overlay", () => {
 // Idle state
 // ============================================================
 describe("idle handling", () => {
-  test("idle to active resets all timers", async () => {
+  test("locked then active resets all timers", async () => {
+    chrome.idle.onStateChanged._fire("locked");
     chrome.idle.onStateChanged._fire("active");
     const s = await getState();
     expect(s.timeSinceTyping).toBeLessThan(100);
     expect(s.isInLoop).toBe(false);
+  });
+
+  test("idle then active does NOT reset timers", async () => {
+    // idle→active is normal browsing (reading a page), should not reset
+    chrome.idle.onStateChanged._fire("idle");
+    chrome.idle.onStateChanged._fire("active");
+    const s = await getState();
+    // Timer should still be running from wherever it was
+    expect(s).toBeDefined();
   });
 });

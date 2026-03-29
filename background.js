@@ -496,14 +496,22 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
-// Use chrome.idle to detect when the user returns from sleep/lock/idle.
-// When the system transitions back to "active", reset the timer so we
-// don't falsely alert for time spent sleeping.
-chrome.idle.setDetectionInterval(60); // report idle after 60s of inactivity
+// Use chrome.idle to detect when the user returns from sleep/lock.
+// Only reset on transitions that indicate the user was genuinely away,
+// not just idle for 60s while reading a page.
+let wasLocked = false;
+chrome.idle.setDetectionInterval(60);
 chrome.idle.onStateChanged.addListener((newState) => {
-  if (newState === "active" && state.enabled) {
-    // User just returned from idle/locked/sleep — always reset
-    resetAllTimers();
+  if (!state.enabled) return;
+  if (newState === "locked") {
+    wasLocked = true;
+  } else if (newState === "active") {
+    if (wasLocked) {
+      // Returning from lock/sleep — always reset
+      wasLocked = false;
+      resetAllTimers();
+    }
+    // idle→active is normal browsing (reading a page). Don't reset.
   }
 });
 
