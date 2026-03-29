@@ -18,8 +18,6 @@ const clickResetsToggle = document.getElementById("click-resets-toggle");
 const inactiveList = document.getElementById("inactive-periods-list");
 const inactiveBadge = document.getElementById("inactive-badge");
 const addPeriodBtn = document.getElementById("add-period-btn");
-const pauseBtn = document.getElementById("pause-btn");
-const resetBtn = document.getElementById("reset-btn");
 const ignoredSitesList = document.getElementById("ignored-sites-list");
 const ignoredBadge = document.getElementById("ignored-badge");
 const addSiteInput = document.getElementById("add-site-input");
@@ -29,8 +27,7 @@ let currentEnabled = true;
 let currentMinSwitches = 0;
 const MAX_SWITCHES = 20;
 let currentInactivePeriods = [{ start: 8, end: 17, days: [0, 1, 2, 3, 4, 5, 6] }];
-let currentIgnoredSites = [];
-let currentManualPause = false;
+let currentIgnoredSites = []; // [{domain, action: "pause"|"reset"}]
 const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 
 function formatTimer(ms) {
@@ -185,11 +182,17 @@ addPeriodBtn.addEventListener("click", () => {
 // Ignored sites
 function renderIgnoredSites() {
   ignoredSitesList.innerHTML = "";
-  currentIgnoredSites.forEach((site, i) => {
+  currentIgnoredSites.forEach((entry, i) => {
+    const domain = typeof entry === "string" ? entry : entry.domain;
+    const action = typeof entry === "string" ? "reset" : (entry.action || "reset");
     const row = document.createElement("div");
     row.className = "ignored-site-row";
     row.innerHTML = `
-      <span>${site}</span>
+      <span>${domain}</span>
+      <div class="site-action-toggle">
+        <button class="site-action-pause ${action === "pause" ? "active" : ""}" data-index="${i}">Pause</button>
+        <button class="site-action-reset ${action === "reset" ? "active" : ""}" data-index="${i}">Reset</button>
+      </div>
       <button class="remove-site" data-index="${i}" title="Remove">
         <span class="material-symbols-outlined" style="font-size:18px;">close</span>
       </button>
@@ -202,23 +205,49 @@ function renderIgnoredSites() {
     btn.addEventListener("click", (e) => {
       const idx = parseInt(e.currentTarget.dataset.index);
       currentIgnoredSites.splice(idx, 1);
-      chrome.runtime.sendMessage({ type: "setConfig", ignoredSites: currentIgnoredSites });
+      saveIgnoredSites();
       renderIgnoredSites();
     });
   });
+  ignoredSitesList.querySelectorAll(".site-action-pause").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const idx = parseInt(e.target.dataset.index);
+      setIgnoredSiteAction(idx, "pause");
+    });
+  });
+  ignoredSitesList.querySelectorAll(".site-action-reset").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const idx = parseInt(e.target.dataset.index);
+      setIgnoredSiteAction(idx, "reset");
+    });
+  });
+}
+
+function setIgnoredSiteAction(idx, action) {
+  const entry = currentIgnoredSites[idx];
+  if (typeof entry === "string") {
+    currentIgnoredSites[idx] = { domain: entry, action };
+  } else {
+    entry.action = action;
+  }
+  saveIgnoredSites();
+  renderIgnoredSites();
+}
+
+function saveIgnoredSites() {
+  chrome.runtime.sendMessage({ type: "setConfig", ignoredSites: currentIgnoredSites });
 }
 
 function addIgnoredSite() {
   let site = addSiteInput.value.trim().toLowerCase();
   if (!site) return;
-  // Strip protocol and path if user pasted a full URL
   try {
     if (site.includes("://")) site = new URL(site).hostname;
     else if (site.includes("/")) site = site.split("/")[0];
   } catch {}
-  if (site && !currentIgnoredSites.includes(site)) {
-    currentIgnoredSites.push(site);
-    chrome.runtime.sendMessage({ type: "setConfig", ignoredSites: currentIgnoredSites });
+  if (site && !currentIgnoredSites.some((e) => (typeof e === "string" ? e : e.domain) === site)) {
+    currentIgnoredSites.push({ domain: site, action: "pause" });
+    saveIgnoredSites();
     renderIgnoredSites();
   }
   addSiteInput.value = "";
@@ -227,34 +256,6 @@ function addIgnoredSite() {
 addSiteBtn.addEventListener("click", addIgnoredSite);
 addSiteInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") addIgnoredSite();
-});
-
-// Pause / Reset
-function updatePauseBtn() {
-  const icon = pauseBtn.querySelector(".material-symbols-outlined");
-  if (currentManualPause) {
-    pauseBtn.classList.add("active");
-    icon.textContent = "play_arrow";
-    pauseBtn.lastChild.textContent = " Resume";
-  } else {
-    pauseBtn.classList.remove("active");
-    icon.textContent = "pause";
-    pauseBtn.lastChild.textContent = " Pause";
-  }
-}
-
-pauseBtn.addEventListener("click", () => {
-  chrome.runtime.sendMessage({ type: "pauseTimer" });
-  currentManualPause = !currentManualPause;
-  updatePauseBtn();
-  setTimeout(update, 100);
-});
-
-resetBtn.addEventListener("click", () => {
-  chrome.runtime.sendMessage({ type: "resetTimer" });
-  currentManualPause = false;
-  updatePauseBtn();
-  setTimeout(update, 100);
 });
 
 function update() {
@@ -298,12 +299,6 @@ function update() {
       }
     }
 
-    // Sync manual pause state
-    if (response.manualPause !== undefined && response.manualPause !== currentManualPause) {
-      currentManualPause = response.manualPause;
-      updatePauseBtn();
-    }
-
     if (!response.enabled) {
       statusEl.textContent = "Off";
       statusEl.className = "state-value";
@@ -316,10 +311,10 @@ function update() {
 
     const warningThreshold = response.loopThresholdMin * 0.66 * 60 * 1000;
 
-    if (response.manualPause) {
-      statusEl.textContent = "Paused";
+    if (response.onIgnoredSite) {
+      statusEl.textContent = "Ignored Site";
       statusEl.className = "state-value";
-      statusSubtitle.textContent = "Timer manually paused";
+      statusSubtitle.textContent = "Tracking paused for this site";
     } else if (response.isInInactivePeriod) {
       statusEl.textContent = "Inactive Period";
       statusEl.className = "state-value";

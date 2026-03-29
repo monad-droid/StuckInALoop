@@ -6,7 +6,7 @@ const DEFAULTS = {
   ytPausesTimer: true,
   clickResetsTimer: false,
   inactivePeriods: [{ start: 8, end: 17, days: [0, 1, 2, 3, 4, 5, 6] }], // default: don't monitor 8am–5pm, all days
-  ignoredSites: [], // domains to ignore (e.g. "docs.google.com")
+  ignoredSites: [], // [{domain, action: "pause"|"reset"}] — sites to skip tracking on
 };
 
 let config = { ...DEFAULTS };
@@ -21,8 +21,8 @@ let state = {
   pausedAt: 0, // timestamp when pause started (to freeze the timer)
   videoTabId: null, // tab ID of the YouTube video we're tracking
   snoozedAt: 0, // timestamp when snooze started (0 = not snoozing)
-  manualPause: false, // true when user manually paused via popup
-  manualPauseAt: 0, // timestamp when manual pause started
+  onIgnoredSite: false, // true when active tab is on an ignored site
+  ignoredSitePausedAt: 0, // timestamp when ignored-site pause started
   ready: false, // true once persisted state has been loaded
 };
 
@@ -44,7 +44,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Load persisted state and config
 chrome.storage.local.get(
-  ["enabled", "loopThresholdMin", "minTabSwitches", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "ignoredSites", "lastTypingTime", "notifiedAt", "tabSwitches", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId", "manualPause", "manualPauseAt"],
+  ["enabled", "loopThresholdMin", "minTabSwitches", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "ignoredSites", "lastTypingTime", "notifiedAt", "tabSwitches", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId"],
   (result) => {
     if (result.enabled !== undefined) {
       state.enabled = result.enabled;
@@ -95,12 +95,6 @@ chrome.storage.local.get(
     if (result.videoTabId != null) {
       state.videoTabId = result.videoTabId;
     }
-    if (result.manualPause) {
-      state.manualPause = result.manualPause;
-    }
-    if (result.manualPauseAt) {
-      state.manualPauseAt = result.manualPauseAt;
-    }
     state.ready = true;
     // Validate video state after restart (tab may have closed/stopped)
     validateVideoState().then(() => {
@@ -120,8 +114,6 @@ function persistState() {
     pausedForVideo: state.pausedForVideo,
     pausedAt: state.pausedAt,
     videoTabId: state.videoTabId,
-    manualPause: state.manualPause,
-    manualPauseAt: state.manualPauseAt,
   });
 }
 
@@ -160,8 +152,21 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
       pruneOldSwitches();
       persistState();
     }
+    updateIgnoredSiteState();
     checkForLoop();
   });
+});
+
+// Re-check ignored site state when a tab's URL changes
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.url && state.enabled) {
+    // Only care if this is the active tab
+    chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+      if (tabs && tabs[0] && tabs[0].id === tabId) {
+        updateIgnoredSiteState();
+      }
+    });
+  }
 });
 
 // Detect when a YouTube video actually starts/stops playing via audible state
@@ -260,12 +265,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     validateVideoState().then(() => {
       const now = Date.now();
       pruneOldSwitches();
-      // If paused (video or manual), report time as frozen at pause point
+      // If paused (video or ignored site), report time as frozen at pause point
       let timeSinceTyping = now - state.lastTypingTime;
       if (state.pausedForVideo) {
         timeSinceTyping = state.pausedAt - state.lastTypingTime;
-      } else if (state.manualPause) {
-        timeSinceTyping = state.manualPauseAt - state.lastTypingTime;
+      } else if (state.onIgnoredSite && state.ignoredSitePausedAt > 0) {
+        timeSinceTyping = state.ignoredSitePausedAt - state.lastTypingTime;
       }
       sendResponse({
         enabled: state.enabled,
@@ -274,7 +279,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         tabSwitchCount: state.tabSwitches.length,
         isInLoop: isInLoop(),
         pausedForVideo: state.pausedForVideo,
-        manualPause: state.manualPause,
+        onIgnoredSite: state.onIgnoredSite,
         loopThresholdMin: config.loopThresholdMin,
         minTabSwitches: config.minTabSwitches,
         snoozeDurationMin: config.snoozeDurationMin,
@@ -362,23 +367,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     });
     sendResponse({ ok: true });
-  } else if (message.type === "pauseTimer") {
-    if (!state.manualPause) {
-      state.manualPause = true;
-      state.manualPauseAt = Date.now();
-    } else {
-      // Unpause — credit the paused time
-      const pauseDuration = Date.now() - state.manualPauseAt;
-      state.lastTypingTime += pauseDuration;
-      state.manualPause = false;
-      state.manualPauseAt = 0;
-      scheduleLoopCheck();
-    }
-    persistState();
-    sendResponse({ ok: true });
-  } else if (message.type === "resetTimer") {
-    resetAllTimers();
-    sendResponse({ ok: true });
   } else if (message.type === "setConfig") {
     if (message.loopThresholdMin !== undefined) {
       config.loopThresholdMin = message.loopThresholdMin;
@@ -462,7 +450,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 let loopTimeout = null;
 function scheduleLoopCheck() {
   if (loopTimeout) clearTimeout(loopTimeout);
-  if (!state.enabled || state.pausedForVideo || state.manualPause) return;
+  if (!state.enabled || state.pausedForVideo || state.onIgnoredSite) return;
 
   const thresholdMs = config.loopThresholdMin * 60 * 1000;
   const elapsed = Date.now() - state.lastTypingTime;
@@ -508,8 +496,8 @@ function resetAllTimers() {
   state.pausedForVideo = false;
   state.pausedAt = 0;
   state.videoTabId = null;
-  state.manualPause = false;
-  state.manualPauseAt = 0;
+  state.onIgnoredSite = false;
+  state.ignoredSitePausedAt = 0;
   persistState();
   scheduleLoopCheck();
 }
@@ -543,17 +531,17 @@ function isInInactivePeriod() {
   });
 }
 
-// Check if a URL matches any ignored site pattern
+// Check if a URL matches any ignored site. Returns the matching entry or null.
 function matchesIgnoredSite(url) {
-  if (!url || !config.ignoredSites || config.ignoredSites.length === 0) return false;
+  if (!url || !config.ignoredSites || config.ignoredSites.length === 0) return null;
   try {
     const hostname = new URL(url).hostname;
-    return config.ignoredSites.some((pattern) => {
-      // Match exact domain or as a suffix (e.g. "google.com" matches "docs.google.com")
-      return hostname === pattern || hostname.endsWith("." + pattern);
-    });
+    return config.ignoredSites.find((entry) => {
+      const domain = typeof entry === "string" ? entry : entry.domain;
+      return hostname === domain || hostname.endsWith("." + domain);
+    }) || null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -566,6 +554,36 @@ function getActiveTabUrl() {
   });
 }
 
+// Check the active tab and enter/exit ignored site state as needed
+function updateIgnoredSiteState() {
+  getActiveTabUrl().then((url) => {
+    const match = matchesIgnoredSite(url);
+    if (match && !state.onIgnoredSite) {
+      // Entering an ignored site
+      const action = (typeof match === "string") ? "reset" : (match.action || "reset");
+      state.onIgnoredSite = true;
+      if (action === "pause") {
+        state.ignoredSitePausedAt = Date.now();
+      } else {
+        // Reset — just keep resetting lastTypingTime while on this site
+        state.lastTypingTime = Date.now();
+      }
+      persistState();
+    } else if (!match && state.onIgnoredSite) {
+      // Leaving an ignored site
+      if (state.ignoredSitePausedAt > 0) {
+        // Was pausing — credit the time
+        const pauseDuration = Date.now() - state.ignoredSitePausedAt;
+        state.lastTypingTime += pauseDuration;
+      }
+      state.onIgnoredSite = false;
+      state.ignoredSitePausedAt = 0;
+      persistState();
+      scheduleLoopCheck();
+    }
+  });
+}
+
 function pruneOldSwitches() {
   const windowMs = config.loopThresholdMin * 60 * 1000;
   const cutoff = Date.now() - windowMs;
@@ -573,7 +591,7 @@ function pruneOldSwitches() {
 }
 
 function isInLoop() {
-  if (state.pausedForVideo || state.manualPause || isInInactivePeriod()) return false;
+  if (state.pausedForVideo || state.onIgnoredSite || isInInactivePeriod()) return false;
   const now = Date.now();
   const timeSinceTyping = now - state.lastTypingTime;
   const thresholdMs = config.loopThresholdMin * 60 * 1000;
@@ -586,29 +604,19 @@ function isInLoop() {
 }
 
 function checkForLoop() {
-  if (!state.enabled || !state.ready || state.manualPause || isInInactivePeriod()) return;
+  if (!state.enabled || !state.ready || state.onIgnoredSite || isInInactivePeriod()) return;
 
   const now = Date.now();
   const NOTIFY_COOLDOWN_MS = 2 * 60 * 1000; // don't re-notify within 2min
   if (isInLoop() && now - state.notifiedAt > NOTIFY_COOLDOWN_MS) {
-    // Before alerting, verify the user is actually at the computer
-    // and not on an ignored site.
-    Promise.all([
-      new Promise((resolve) => chrome.idle.queryState(60, resolve)),
-      getActiveTabUrl(),
-    ]).then(([idleState, activeUrl]) => {
+    // Before alerting, verify the user is actually at the computer.
+    // If idle/locked (e.g. laptop was closed), reset instead of alerting.
+    chrome.idle.queryState(60, (idleState) => {
       if (idleState !== "active") {
         resetAllTimers();
         return;
       }
-      if (matchesIgnoredSite(activeUrl)) {
-        // On an ignored site — reset typing time so we don't alert when they leave
-        state.lastTypingTime = Date.now();
-        persistState();
-        scheduleLoopCheck();
-        return;
-      }
-      // Re-check after the async calls — state may have changed
+      // Re-check after the async call — state may have changed
       if (isInLoop() && Date.now() - state.notifiedAt > NOTIFY_COOLDOWN_MS) {
         triggerAlert();
       }
