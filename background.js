@@ -240,17 +240,17 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   }
 });
 
-// When navResetsTimer is on, count address-bar navigations as tab switches
-// rather than resetting the typing timer. Just visiting a site without
-// engaging (typing/clicking) doesn't prove you're being productive.
+// When navResetsTimer is on, typing a URL in the address bar resets the
+// inactivity timer — the user is actively doing something intentional.
 chrome.webNavigation.onCommitted.addListener((details) => {
   if (!state.enabled || !config.navResetsTimer) return;
   const validTypes = ["typed", "generated", "form_submit"];
   if (details.frameId === 0 && validTypes.includes(details.transitionType)) {
-    // Count it as a tab switch instead of an engagement signal
+    state.lastTypingTime = Date.now();
     state.tabSwitches.push(Date.now());
     pruneOldSwitches();
     persistState();
+    scheduleLoopCheck();
   }
 });
 
