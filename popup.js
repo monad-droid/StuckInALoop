@@ -27,7 +27,7 @@ const addSiteBtn = document.getElementById("add-site-btn");
 let currentEnabled = true;
 let currentMinSwitches = 0;
 const MAX_SWITCHES = 20;
-let currentInactivePeriods = [{ start: 8, end: 17, days: [0, 1, 2, 3, 4, 5, 6] }];
+let currentInactivePeriods = [{ start: 8, end: 17, days: [1, 2, 3, 4, 5] }];
 let currentIgnoredSites = []; // [{domain, action: "pause"|"reset"}]
 let currentChromeFocusLost = "pause";
 const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
@@ -173,7 +173,7 @@ function saveInactivePeriods() {
 
 addPeriodBtn.addEventListener("click", () => {
   if (currentInactivePeriods.length === 0) {
-    currentInactivePeriods.push({ start: 8, end: 17, days: [0, 1, 2, 3, 4, 5, 6] });
+    currentInactivePeriods.push({ start: 8, end: 17, days: [1, 2, 3, 4, 5] });
   } else {
     currentInactivePeriods.push({ start: 0, end: 24, days: [0, 1, 2, 3, 4, 5, 6] });
   }

@@ -5,7 +5,7 @@ const DEFAULTS = {
   navResetsTimer: true,
   ytPausesTimer: true,
   clickResetsTimer: false,
-  inactivePeriods: [{ start: 8, end: 17, days: [0, 1, 2, 3, 4, 5, 6] }], // default: don't monitor 8am–5pm, all days
+  inactivePeriods: [{ start: 8, end: 17, days: [1, 2, 3, 4, 5] }], // default: don't monitor 8am–5pm, weekdays only
   ignoredSites: [], // [{domain, action: "pause"|"reset"}] — sites to skip tracking on
   chromeFocusLost: "pause", // "pause" or "reset" — what to do when Chrome loses focus
 };
