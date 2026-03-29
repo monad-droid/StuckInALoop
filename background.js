@@ -104,11 +104,33 @@ chrome.storage.local.get(
       state.chromeUnfocusedAt = result.chromeUnfocusedAt;
     }
     state.ready = true;
-    // Validate video state after restart (tab may have closed/stopped)
-    validateVideoState().then(() => {
-      checkForLoop();
-      scheduleLoopCheck();
-    });
+    // On startup, verify Chrome actually lacks focus before trusting stored state.
+    // The service worker may have restarted while Chrome regained focus.
+    if (state.chromeUnfocusedAt > 0) {
+      chrome.windows.getLastFocused((win) => {
+        if (win && win.focused) {
+          // Chrome has focus — clear the stale unfocused state
+          if (config.chromeFocusLost === "reset") {
+            resetAllTimers();
+          } else {
+            const awayDuration = Date.now() - state.chromeUnfocusedAt;
+            state.lastTypingTime += awayDuration;
+            state.chromeUnfocusedAt = 0;
+            persistState();
+          }
+        }
+        validateVideoState().then(() => {
+          checkForLoop();
+          scheduleLoopCheck();
+        });
+      });
+    } else {
+      // Validate video state after restart (tab may have closed/stopped)
+      validateVideoState().then(() => {
+        checkForLoop();
+        scheduleLoopCheck();
+      });
+    }
   }
 );
 
