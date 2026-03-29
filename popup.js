@@ -1,8 +1,6 @@
 const statusEl = document.getElementById("status");
 const statusSubtitle = document.getElementById("status-subtitle");
 const typingTimeEl = document.getElementById("typing-time");
-const activeTimeEl = document.getElementById("active-time");
-const switchCountEl = document.getElementById("switch-count");
 const enabledToggle = document.getElementById("enabled-toggle");
 const statusDot = document.getElementById("status-dot");
 const statusPing = document.getElementById("status-ping");
@@ -43,14 +41,6 @@ function formatTimer(ms) {
   return `${min}:${sec.toString().padStart(2, "0")}`;
 }
 
-function formatActiveTime(ms) {
-  const totalSec = Math.floor(ms / 1000);
-  const hrs = Math.floor(totalSec / 3600);
-  const min = Math.floor((totalSec % 3600) / 60);
-  const sec = totalSec % 60;
-  if (hrs > 0) return `${hrs}:${min.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
-  return `${min}:${sec.toString().padStart(2, "0")}`;
-}
 
 function updateSwitchesFill() {
   const pct = Math.min(100, (currentMinSwitches / MAX_SWITCHES) * 100);
@@ -319,14 +309,10 @@ function update() {
       statusEl.className = "state-value";
       statusSubtitle.textContent = "Detection disabled";
       typingTimeEl.textContent = "--:--";
-      switchCountEl.textContent = "--";
-      activeTimeEl.textContent = "--";
       return;
     }
 
     typingTimeEl.textContent = formatTimer(response.timeSinceTyping);
-    switchCountEl.textContent = response.tabSwitchCount;
-    activeTimeEl.textContent = formatActiveTime(Date.now() - response.sessionStartTime);
 
     const warningThreshold = response.loopThresholdMin * 0.66 * 60 * 1000;
 

@@ -481,33 +481,6 @@
     }
     .add-period-btn:hover { background: #f0f0ff; }
 
-    /* Session Stats */
-    .stats-card {
-      background: rgba(225, 227, 228, 0.5);
-      backdrop-filter: blur(12px);
-      padding: 20px;
-      border-radius: 16px;
-      border: 1px solid rgba(255,255,255,0.2);
-    }
-    .stats-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-    .stats-grid .stat-label {
-      font-size: 10px;
-      color: #767683;
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: -0.02em;
-      margin-bottom: 4px;
-    }
-    .stats-grid .stat-value {
-      font-size: 18px;
-      font-family: 'Manrope', sans-serif;
-      font-weight: 700;
-      color: #191c1d;
-    }
 
   </style>
 </head>
@@ -644,23 +617,6 @@
       </div>
     </section>
 
-    <!-- Session Stats -->
-    <section class="stats-card">
-      <div class="section-header">
-        <span class="material-symbols-outlined icon">analytics</span>
-        <h3>Session Stats</h3>
-      </div>
-      <div class="stats-grid">
-        <div>
-          <p class="stat-label">Tab switches</p>
-          <p class="stat-value" id="switch-count">0</p>
-        </div>
-        <div>
-          <p class="stat-label">Active for</p>
-          <p class="stat-value" id="active-time">0:00</p>
-        </div>
-      </div>
-    </section>
   </main>
 
 
