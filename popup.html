@@ -146,6 +146,109 @@
       letter-spacing: -0.05em;
     }
 
+    /* Timer Controls */
+    .timer-controls {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .timer-ctrl-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 8px 0;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .timer-ctrl-btn.pause {
+      background: #e0e0ff;
+      color: #000666;
+    }
+    .timer-ctrl-btn.pause:hover { background: #d0d0f0; }
+    .timer-ctrl-btn.pause.active {
+      background: #000666;
+      color: #fff;
+    }
+    .timer-ctrl-btn.reset {
+      background: #f3f4f5;
+      color: #767683;
+    }
+    .timer-ctrl-btn.reset:hover { background: #e1e3e4; }
+
+    /* Ignored Sites */
+    .ignored-sites-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .ignored-site-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      background: #fff;
+      border-radius: 8px;
+    }
+    .ignored-site-row span {
+      flex: 1;
+      font-size: 12px;
+      font-weight: 500;
+      color: #191c1d;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ignored-site-row .remove-site {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      padding: 2px;
+      border-radius: 4px;
+    }
+    .ignored-site-row .remove-site:hover { color: #dc2626; }
+    .add-site-row {
+      display: flex;
+      gap: 6px;
+    }
+    .add-site-row input {
+      flex: 1;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      padding: 6px 10px;
+      border: 1px solid #d9dadb;
+      border-radius: 6px;
+      background: #fff;
+      color: #191c1d;
+      outline: none;
+    }
+    .add-site-row input:focus { border-color: #000666; }
+    .add-site-row input::placeholder { color: #94a3b8; }
+    .add-site-row button {
+      background: #000666;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+    }
+    .add-site-row button:hover { background: #4355b9; }
+
     /* Configuration Section */
     .section-header {
       display: flex;
@@ -440,6 +543,18 @@
       </div>
     </section>
 
+    <!-- Timer Controls -->
+    <div class="timer-controls">
+      <button class="timer-ctrl-btn pause" id="pause-btn">
+        <span class="material-symbols-outlined" style="font-size: 16px;">pause</span>
+        Pause
+      </button>
+      <button class="timer-ctrl-btn reset" id="reset-btn">
+        <span class="material-symbols-outlined" style="font-size: 16px;">restart_alt</span>
+        Reset
+      </button>
+    </div>
+
     <!-- Configuration -->
     <section>
       <div class="section-header">
@@ -514,6 +629,18 @@
           <span class="material-symbols-outlined" style="font-size: 16px;">add</span>
           Add inactive period
         </button>
+      </div>
+      <!-- Ignored Sites -->
+      <div class="inactive-periods" style="margin-top: 16px;">
+        <div class="config-card-header">
+          <label>Ignored websites</label>
+          <span class="config-badge" id="ignored-badge">none</span>
+        </div>
+        <div class="ignored-sites-list" id="ignored-sites-list"></div>
+        <div class="add-site-row">
+          <input type="text" id="add-site-input" placeholder="e.g. docs.google.com">
+          <button id="add-site-btn">Add</button>
+        </div>
       </div>
     </section>
 

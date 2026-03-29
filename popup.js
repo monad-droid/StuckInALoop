@@ -20,11 +20,19 @@ const clickResetsToggle = document.getElementById("click-resets-toggle");
 const inactiveList = document.getElementById("inactive-periods-list");
 const inactiveBadge = document.getElementById("inactive-badge");
 const addPeriodBtn = document.getElementById("add-period-btn");
+const pauseBtn = document.getElementById("pause-btn");
+const resetBtn = document.getElementById("reset-btn");
+const ignoredSitesList = document.getElementById("ignored-sites-list");
+const ignoredBadge = document.getElementById("ignored-badge");
+const addSiteInput = document.getElementById("add-site-input");
+const addSiteBtn = document.getElementById("add-site-btn");
 
 let currentEnabled = true;
 let currentMinSwitches = 0;
 const MAX_SWITCHES = 20;
 let currentInactivePeriods = [{ start: 8, end: 17, days: [0, 1, 2, 3, 4, 5, 6] }];
+let currentIgnoredSites = [];
+let currentManualPause = false;
 const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 
 function formatTimer(ms) {
@@ -184,6 +192,81 @@ addPeriodBtn.addEventListener("click", () => {
   renderInactivePeriods();
 });
 
+// Ignored sites
+function renderIgnoredSites() {
+  ignoredSitesList.innerHTML = "";
+  currentIgnoredSites.forEach((site, i) => {
+    const row = document.createElement("div");
+    row.className = "ignored-site-row";
+    row.innerHTML = `
+      <span>${site}</span>
+      <button class="remove-site" data-index="${i}" title="Remove">
+        <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+      </button>
+    `;
+    ignoredSitesList.appendChild(row);
+  });
+  ignoredBadge.textContent = currentIgnoredSites.length === 0 ? "none" : currentIgnoredSites.length + " site" + (currentIgnoredSites.length === 1 ? "" : "s");
+
+  ignoredSitesList.querySelectorAll(".remove-site").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const idx = parseInt(e.currentTarget.dataset.index);
+      currentIgnoredSites.splice(idx, 1);
+      chrome.runtime.sendMessage({ type: "setConfig", ignoredSites: currentIgnoredSites });
+      renderIgnoredSites();
+    });
+  });
+}
+
+function addIgnoredSite() {
+  let site = addSiteInput.value.trim().toLowerCase();
+  if (!site) return;
+  // Strip protocol and path if user pasted a full URL
+  try {
+    if (site.includes("://")) site = new URL(site).hostname;
+    else if (site.includes("/")) site = site.split("/")[0];
+  } catch {}
+  if (site && !currentIgnoredSites.includes(site)) {
+    currentIgnoredSites.push(site);
+    chrome.runtime.sendMessage({ type: "setConfig", ignoredSites: currentIgnoredSites });
+    renderIgnoredSites();
+  }
+  addSiteInput.value = "";
+}
+
+addSiteBtn.addEventListener("click", addIgnoredSite);
+addSiteInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") addIgnoredSite();
+});
+
+// Pause / Reset
+function updatePauseBtn() {
+  const icon = pauseBtn.querySelector(".material-symbols-outlined");
+  if (currentManualPause) {
+    pauseBtn.classList.add("active");
+    icon.textContent = "play_arrow";
+    pauseBtn.lastChild.textContent = " Resume";
+  } else {
+    pauseBtn.classList.remove("active");
+    icon.textContent = "pause";
+    pauseBtn.lastChild.textContent = " Pause";
+  }
+}
+
+pauseBtn.addEventListener("click", () => {
+  chrome.runtime.sendMessage({ type: "pauseTimer" });
+  currentManualPause = !currentManualPause;
+  updatePauseBtn();
+  setTimeout(update, 100);
+});
+
+resetBtn.addEventListener("click", () => {
+  chrome.runtime.sendMessage({ type: "resetTimer" });
+  currentManualPause = false;
+  updatePauseBtn();
+  setTimeout(update, 100);
+});
+
 function update() {
   chrome.runtime.sendMessage({ type: "getState" }, (response) => {
     if (!response) return;
@@ -216,6 +299,21 @@ function update() {
       }
     }
 
+    // Sync ignored sites
+    if (response.ignoredSites !== undefined) {
+      const newJson = JSON.stringify(response.ignoredSites);
+      if (newJson !== JSON.stringify(currentIgnoredSites)) {
+        currentIgnoredSites = response.ignoredSites;
+        renderIgnoredSites();
+      }
+    }
+
+    // Sync manual pause state
+    if (response.manualPause !== undefined && response.manualPause !== currentManualPause) {
+      currentManualPause = response.manualPause;
+      updatePauseBtn();
+    }
+
     if (!response.enabled) {
       statusEl.textContent = "Off";
       statusEl.className = "state-value";
@@ -232,7 +330,11 @@ function update() {
 
     const warningThreshold = response.loopThresholdMin * 0.66 * 60 * 1000;
 
-    if (response.isInInactivePeriod) {
+    if (response.manualPause) {
+      statusEl.textContent = "Paused";
+      statusEl.className = "state-value";
+      statusSubtitle.textContent = "Timer manually paused";
+    } else if (response.isInInactivePeriod) {
       statusEl.textContent = "Inactive Period";
       statusEl.className = "state-value";
       statusSubtitle.textContent = "Monitoring paused";
@@ -325,5 +427,6 @@ function saveConfig() {
 }
 
 renderInactivePeriods();
+renderIgnoredSites();
 update();
 setInterval(update, 1000);
