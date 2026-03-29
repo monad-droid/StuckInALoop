@@ -599,13 +599,12 @@ function updateIgnoredSiteState() {
   getActiveTabUrl().then((url) => {
     const match = matchesIgnoredSite(url);
     if (match && !state.onIgnoredSite) {
-      // Entering an ignored site
+      // Entering an ignored site — always freeze the timer while here
       const action = (typeof match === "string") ? "reset" : (match.action || "reset");
       state.onIgnoredSite = true;
-      if (action === "pause") {
-        state.ignoredSitePausedAt = Date.now();
-      } else {
-        // Reset — just keep resetting lastTypingTime while on this site
+      state.ignoredSitePausedAt = Date.now();
+      if (action === "reset") {
+        // Reset to zero AND freeze — when we leave, the credit will keep it at 0
         state.lastTypingTime = Date.now();
       }
       persistState();
