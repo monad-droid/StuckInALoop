@@ -299,45 +299,6 @@
       box-shadow: 0 1px 3px rgba(0,0,0,0.2);
     }
 
-    /* Stepper Control */
-    .stepper {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-    }
-    .stepper-btn {
-      background: #e1e3e4;
-      height: 32px;
-      width: 32px;
-      border-radius: 8px;
-      border: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: transform 0.1s;
-      color: #191c1d;
-    }
-    .stepper-btn:active { transform: scale(0.95); }
-    .stepper-track {
-      flex: 1;
-      height: 4px;
-      background: #e1e3e4;
-      border-radius: 9999px;
-      position: relative;
-      overflow: hidden;
-    }
-    .stepper-fill {
-      position: absolute;
-      left: 0;
-      top: 0;
-      height: 100%;
-      background: #000666;
-      border-radius: 9999px;
-      transition: width 0.2s;
-    }
-
     /* Toggle Controls */
     .toggles { padding-top: 8px; }
     .toggles > * + * { margin-top: 12px; }
@@ -525,24 +486,6 @@
             <span class="config-badge" id="snooze-badge">5 min</span>
           </div>
           <input type="range" id="snooze-duration" min="0" max="14" value="5">
-        </div>
-        <!-- Min tab switches -->
-        <div class="config-card">
-          <div class="config-card-header">
-            <label>Min tab switches</label>
-            <span class="config-badge" id="switches-badge">3</span>
-          </div>
-          <div class="stepper">
-            <button class="stepper-btn" id="switches-dec">
-              <span class="material-symbols-outlined" style="font-size: 18px;">remove</span>
-            </button>
-            <div class="stepper-track">
-              <div class="stepper-fill" id="switches-fill" style="width: 0%;"></div>
-            </div>
-            <button class="stepper-btn" id="switches-inc">
-              <span class="material-symbols-outlined" style="font-size: 18px;">add</span>
-            </button>
-          </div>
         </div>
       </div>
       <!-- Toggles -->

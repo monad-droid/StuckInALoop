@@ -6,10 +6,6 @@ const statusDot = document.getElementById("status-dot");
 const statusPing = document.getElementById("status-ping");
 const thresholdInput = document.getElementById("threshold-min");
 const thresholdBadge = document.getElementById("threshold-badge");
-const switchesBadge = document.getElementById("switches-badge");
-const switchesFill = document.getElementById("switches-fill");
-const switchesDec = document.getElementById("switches-dec");
-const switchesInc = document.getElementById("switches-inc");
 const snoozeDurationInput = document.getElementById("snooze-duration");
 const snoozeBadge = document.getElementById("snooze-badge");
 const navResetsToggle = document.getElementById("nav-resets-toggle");
@@ -25,8 +21,6 @@ const addSiteInput = document.getElementById("add-site-input");
 const addSiteBtn = document.getElementById("add-site-btn");
 
 let currentEnabled = true;
-let currentMinSwitches = 0;
-const MAX_SWITCHES = 20;
 let currentInactivePeriods = [{ start: 8, end: 17, days: [1, 2, 3, 4, 5] }];
 let currentIgnoredSites = []; // [{domain, action: "pause"|"reset"}]
 let currentChromeFocusLost = "pause";
@@ -40,12 +34,6 @@ function formatTimer(ms) {
   return `${min}:${sec.toString().padStart(2, "0")}`;
 }
 
-
-function updateSwitchesFill() {
-  const pct = Math.min(100, (currentMinSwitches / MAX_SWITCHES) * 100);
-  switchesFill.style.width = pct + "%";
-  switchesBadge.textContent = currentMinSwitches;
-}
 
 function setToggleState(btn, on) {
   btn.classList.toggle("on", on);
@@ -265,7 +253,6 @@ function update() {
     if (!response) return;
 
     currentEnabled = response.enabled;
-    currentMinSwitches = response.minTabSwitches;
     setEnabledUI(response.enabled);
 
     // Sync config inputs (only when not actively dragging)
@@ -273,7 +260,6 @@ function update() {
       thresholdInput.value = response.loopThresholdMin;
       thresholdBadge.textContent = response.loopThresholdMin + " min";
     }
-    updateSwitchesFill();
     if (document.activeElement !== snoozeDurationInput) {
       snoozeDurationInput.value = response.snoozeDurationMin;
       snoozeDurationInput.max = Math.max(1, response.loopThresholdMin - 1);
@@ -366,22 +352,6 @@ thresholdInput.addEventListener("input", () => {
 });
 thresholdInput.addEventListener("change", saveConfig);
 
-// Min tab switches stepper
-switchesDec.addEventListener("click", () => {
-  if (currentMinSwitches > 1) {
-    currentMinSwitches--;
-    updateSwitchesFill();
-    saveConfig();
-  }
-});
-switchesInc.addEventListener("click", () => {
-  if (currentMinSwitches < MAX_SWITCHES) {
-    currentMinSwitches++;
-    updateSwitchesFill();
-    saveConfig();
-  }
-});
-
 // Snooze slider
 snoozeDurationInput.addEventListener("input", () => {
   snoozeBadge.textContent = snoozeDurationInput.value + " min";
@@ -425,14 +395,12 @@ chromeFocusToggle.querySelector(".chrome-focus-reset").addEventListener("click",
 
 function saveConfig() {
   const loopThresholdMin = Math.max(1, Math.min(60, parseInt(thresholdInput.value) || 15));
-  const minTabSwitches = Math.max(1, Math.min(MAX_SWITCHES, currentMinSwitches));
   const maxSnooze = Math.max(1, loopThresholdMin - 1);
   const snoozeDurationMin = Math.max(0, Math.min(maxSnooze, parseInt(snoozeDurationInput.value) || 0));
   snoozeDurationInput.max = maxSnooze;
   chrome.runtime.sendMessage({
     type: "setConfig",
     loopThresholdMin,
-    minTabSwitches,
     snoozeDurationMin,
   });
 }

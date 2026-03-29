@@ -1,6 +1,5 @@
 const DEFAULTS = {
   loopThresholdMin: 10,
-  minTabSwitches: 3,
   snoozeDurationMin: 5,
   navResetsTimer: true,
   ytPausesTimer: true,
@@ -15,7 +14,6 @@ let config = { ...DEFAULTS };
 let state = {
   lastTypingTime: Date.now(),
   sessionStartTime: Date.now(), // when the current browsing session started
-  tabSwitches: [], // timestamps of tab switches
   notifiedAt: 0, // last time we showed a notification (cooldown)
   enabled: true,
   pausedForVideo: false, // true when actively playing a YouTube video
@@ -31,31 +29,26 @@ let state = {
 // Reset stats on extension install/reload/update (but keep configs)
 chrome.runtime.onInstalled.addListener(() => {
   state.lastTypingTime = Date.now();
-  state.tabSwitches = [];
   state.notifiedAt = 0;
   state.pausedForVideo = false;
   state.pausedAt = 0;
   state.videoTabId = null;
-  chrome.storage.local.remove("lastHeartbeat"); // clean up legacy key
+  chrome.storage.local.remove(["lastHeartbeat", "tabSwitches", "minTabSwitches"]);
   chrome.storage.local.set({
     lastTypingTime: state.lastTypingTime,
     notifiedAt: state.notifiedAt,
-    tabSwitches: state.tabSwitches,
   });
 });
 
 // Load persisted state and config
 chrome.storage.local.get(
-  ["enabled", "loopThresholdMin", "minTabSwitches", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "ignoredSites", "chromeFocusLost", "lastTypingTime", "notifiedAt", "tabSwitches", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId", "chromeUnfocusedAt"],
+  ["enabled", "loopThresholdMin", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "ignoredSites", "chromeFocusLost", "lastTypingTime", "notifiedAt", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId", "chromeUnfocusedAt"],
   (result) => {
     if (result.enabled !== undefined) {
       state.enabled = result.enabled;
     }
     if (result.loopThresholdMin !== undefined) {
       config.loopThresholdMin = result.loopThresholdMin;
-    }
-    if (result.minTabSwitches !== undefined) {
-      config.minTabSwitches = result.minTabSwitches;
     }
     if (result.snoozeDurationMin !== undefined) {
       config.snoozeDurationMin = result.snoozeDurationMin;
@@ -84,9 +77,6 @@ chrome.storage.local.get(
     }
     if (result.notifiedAt) {
       state.notifiedAt = result.notifiedAt;
-    }
-    if (result.tabSwitches) {
-      state.tabSwitches = result.tabSwitches;
     }
     if (result.snoozedAt) {
       state.snoozedAt = result.snoozedAt;
@@ -139,7 +129,6 @@ function persistState() {
   chrome.storage.local.set({
     lastTypingTime: state.lastTypingTime,
     notifiedAt: state.notifiedAt,
-    tabSwitches: state.tabSwitches,
     snoozedAt: state.snoozedAt,
     pausedForVideo: state.pausedForVideo,
     pausedAt: state.pausedAt,
@@ -172,17 +161,10 @@ function validateVideoState() {
   });
 }
 
-// Track tab switches
+// Track tab activations for ignored site detection and video validation
 chrome.tabs.onActivated.addListener((activeInfo) => {
   if (!state.enabled) return;
-
-  // Re-validate video state on every tab switch
   validateVideoState().then(() => {
-    if (!state.pausedForVideo) {
-      state.tabSwitches.push(Date.now());
-      pruneOldSwitches();
-      persistState();
-    }
     updateIgnoredSiteState();
     checkForLoop();
   });
@@ -245,11 +227,6 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
         persistState();
         scheduleLoopCheck();
       }
-    } else {
-      // Normal switch between Chrome windows
-      state.tabSwitches.push(Date.now());
-      pruneOldSwitches();
-      persistState();
     }
   }
 });
@@ -269,8 +246,6 @@ chrome.webNavigation.onCommitted.addListener((details) => {
   const validTypes = ["typed", "generated", "form_submit"];
   if (details.frameId === 0 && validTypes.includes(details.transitionType)) {
     state.lastTypingTime = Date.now();
-    state.tabSwitches.push(Date.now());
-    pruneOldSwitches();
     persistState();
     scheduleLoopCheck();
   }
@@ -317,7 +292,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Validate video state before responding so popup always sees current truth
     validateVideoState().then(() => {
       const now = Date.now();
-      pruneOldSwitches();
       // If paused (video, ignored site, or Chrome unfocused), report time as frozen
       let timeSinceTyping = now - state.lastTypingTime;
       if (state.pausedForVideo) {
@@ -331,12 +305,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         enabled: state.enabled,
         timeSinceTyping,
         sessionStartTime: state.sessionStartTime,
-        tabSwitchCount: state.tabSwitches.length,
         isInLoop: isInLoop(),
         pausedForVideo: state.pausedForVideo,
         onIgnoredSite: state.onIgnoredSite,
         loopThresholdMin: config.loopThresholdMin,
-        minTabSwitches: config.minTabSwitches,
         snoozeDurationMin: config.snoozeDurationMin,
         navResetsTimer: config.navResetsTimer,
         ytPausesTimer: config.ytPausesTimer,
@@ -356,7 +328,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       state.lastTypingTime = Date.now();
       state.sessionStartTime = Date.now();
       state.snoozedAt = 0;
-      state.tabSwitches = [];
     }
     // Always clear video pause when toggling
     state.pausedForVideo = false;
@@ -388,7 +359,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     state.lastTypingTime = Date.now();
     state.sessionStartTime = Date.now();
     state.snoozedAt = 0;
-    state.tabSwitches = [];
     state.notifiedAt = 0;
     state.pausedForVideo = false;
     state.pausedAt = 0;
@@ -410,7 +380,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const NOTIFY_COOLDOWN_MS = 2 * 60 * 1000;
     state.snoozedAt = Date.now();
     state.lastTypingTime = Date.now() - thresholdMs + snoozeCooldownMs;
-    state.tabSwitches = [];
     state.notifiedAt = Date.now() - NOTIFY_COOLDOWN_MS + snoozeCooldownMs;
     state.pausedForVideo = false;
     state.pausedAt = 0;
@@ -445,10 +414,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         persistState();
         scheduleLoopCheck();
       }
-    }
-    if (message.minTabSwitches !== undefined) {
-      config.minTabSwitches = message.minTabSwitches;
-      chrome.storage.local.set({ minTabSwitches: config.minTabSwitches });
     }
     if (message.snoozeDurationMin !== undefined) {
       // Enforce snooze < threshold
@@ -564,7 +529,6 @@ function resetAllTimers() {
   state.lastTypingTime = Date.now();
   state.sessionStartTime = Date.now();
   state.snoozedAt = 0;
-  state.tabSwitches = [];
   state.notifiedAt = 0;
   state.pausedForVideo = false;
   state.pausedAt = 0;
@@ -657,18 +621,11 @@ function updateIgnoredSiteState() {
   });
 }
 
-function pruneOldSwitches() {
-  const windowMs = config.loopThresholdMin * 60 * 1000;
-  const cutoff = Date.now() - windowMs;
-  state.tabSwitches = state.tabSwitches.filter((t) => t > cutoff);
-}
-
 function isInLoop() {
   if (state.pausedForVideo || state.onIgnoredSite || state.chromeUnfocusedAt > 0 || isInInactivePeriod()) return false;
   const now = Date.now();
   const timeSinceTyping = now - state.lastTypingTime;
   const thresholdMs = config.loopThresholdMin * 60 * 1000;
-  pruneOldSwitches();
 
   // Trigger if typing threshold is exceeded — either you've been
   // tab-switching (looping) or zoned out on one page (drifting).

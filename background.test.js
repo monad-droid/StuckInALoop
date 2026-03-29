@@ -101,11 +101,6 @@ describe("defaults", () => {
     expect(s.snoozeDurationMin).toBe(5);
   });
 
-  test("default min tab switches is 3", async () => {
-    const s = await getState();
-    expect(s.minTabSwitches).toBe(3);
-  });
-
   test("default inactive period is weekdays 8-17", async () => {
     const s = await getState();
     expect(s.inactivePeriods).toEqual([{ start: 8, end: 17, days: [1, 2, 3, 4, 5] }]);
@@ -213,12 +208,6 @@ describe("config changes", () => {
     await setConfig({ loopThresholdMin: 10 });
   });
 
-  test("min tab switches can be changed", async () => {
-    await setConfig({ minTabSwitches: 7 });
-    const s = await getState();
-    expect(s.minTabSwitches).toBe(7);
-    await setConfig({ minTabSwitches: 3 });
-  });
 });
 
 // ============================================================
