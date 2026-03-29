@@ -106,6 +106,8 @@ chrome.storage.local.get(
     }
 
     state.ready = true;
+    // Now that we've checked the old heartbeat, start writing new ones
+    startHeartbeat();
     // Validate video state after restart (tab may have closed/stopped)
     validateVideoState().then(() => {
       checkForLoop();
@@ -114,15 +116,21 @@ chrome.storage.local.get(
   }
 );
 
-// Track the last time the service worker was alive, so we can detect sleep gaps
-let lastHeartbeat = Date.now();
+// Track the last time the service worker was alive, so we can detect sleep gaps.
+// IMPORTANT: do NOT initialize to Date.now() or call persistHeartbeat() here —
+// we must read the old value from storage first before overwriting it.
+let lastHeartbeat = 0;
+let heartbeatInterval = null;
 function persistHeartbeat() {
   lastHeartbeat = Date.now();
   chrome.storage.local.set({ lastHeartbeat });
 }
-// Write heartbeat every 25s so we can detect gaps > ~30s (i.e. sleep)
-setInterval(persistHeartbeat, 25000);
-persistHeartbeat();
+function startHeartbeat() {
+  persistHeartbeat(); // write the first one now that we've checked the old value
+  if (!heartbeatInterval) {
+    heartbeatInterval = setInterval(persistHeartbeat, 25000);
+  }
+}
 
 // Persist timing state to storage so it survives service worker restarts
 function persistState() {
@@ -470,9 +478,9 @@ function scheduleLoopCheck() {
 chrome.alarms.create("loopCheck", { periodInMinutes: 0.5 });
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "loopCheck" && state.enabled) {
-    // If the alarm fires after a long gap (sleep/suspend), reset instead of alerting
-    const gap = Date.now() - lastHeartbeat;
-    if (gap > 60000) {
+    // If the alarm fires after a long gap (sleep/suspend), reset instead of alerting.
+    // lastHeartbeat=0 means storage hasn't loaded yet — skip, the load handler will deal with it.
+    if (lastHeartbeat > 0 && (Date.now() - lastHeartbeat) > 60000) {
       state.lastTypingTime = Date.now();
       state.sessionStartTime = Date.now();
       state.snoozedAt = 0;
@@ -482,11 +490,12 @@ chrome.alarms.onAlarm.addListener((alarm) => {
       state.pausedAt = 0;
       state.videoTabId = null;
       persistState();
+      persistHeartbeat();
       scheduleLoopCheck();
     } else {
       checkForLoop();
+      if (lastHeartbeat > 0) persistHeartbeat();
     }
-    persistHeartbeat();
   }
 });
 
