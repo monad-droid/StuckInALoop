@@ -630,18 +630,7 @@ function checkForLoop() {
   const now = Date.now();
   const NOTIFY_COOLDOWN_MS = 2 * 60 * 1000; // don't re-notify within 2min
   if (isInLoop() && now - state.notifiedAt > NOTIFY_COOLDOWN_MS) {
-    // Before alerting, verify the user is actually at the computer.
-    // If idle/locked (e.g. laptop was closed), reset instead of alerting.
-    chrome.idle.queryState(60, (idleState) => {
-      if (idleState !== "active") {
-        resetAllTimers();
-        return;
-      }
-      // Re-check after the async call — state may have changed
-      if (isInLoop() && Date.now() - state.notifiedAt > NOTIFY_COOLDOWN_MS) {
-        triggerAlert();
-      }
-    });
+    triggerAlert();
   }
 }
 
