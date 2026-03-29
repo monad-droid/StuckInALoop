@@ -42,6 +42,7 @@ global.chrome = {
   },
   webNavigation: {
     onCommitted: mockListener(),
+    onHistoryStateUpdated: mockListener(),
   },
   idle: {
     setDetectionInterval: () => {},

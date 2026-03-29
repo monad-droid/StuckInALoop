@@ -216,15 +216,23 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 
 // When navResetsTimer is on, any main-frame navigation resets the inactivity
 // timer — the user is actively browsing, not zoned out.
-chrome.webNavigation.onCommitted.addListener((details) => {
+function handleNavigation(details) {
   if (!state.enabled || !config.navResetsTimer) return;
-  const validTypes = ["typed", "generated", "form_submit", "link", "auto_bookmark"];
-  if (details.frameId === 0 && validTypes.includes(details.transitionType)) {
+  if (details.frameId === 0) {
     state.lastTypingTime = Date.now();
     persistState();
     scheduleLoopCheck();
   }
+}
+chrome.webNavigation.onCommitted.addListener((details) => {
+  if (!state.enabled || !config.navResetsTimer) return;
+  const validTypes = ["typed", "generated", "form_submit", "link", "auto_bookmark"];
+  if (details.frameId === 0 && validTypes.includes(details.transitionType)) {
+    handleNavigation(details);
+  }
 });
+// SPA navigations (pushState/replaceState) don't fire onCommitted
+chrome.webNavigation.onHistoryStateUpdated.addListener(handleNavigation);
 
 // Listen for typing reports from content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
