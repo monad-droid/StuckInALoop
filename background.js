@@ -31,6 +31,7 @@ chrome.runtime.onInstalled.addListener(() => {
   state.pausedForVideo = false;
   state.pausedAt = 0;
   state.videoTabId = null;
+  chrome.storage.local.remove("lastHeartbeat"); // clean up legacy key
   chrome.storage.local.set({
     lastTypingTime: state.lastTypingTime,
     notifiedAt: state.notifiedAt,
@@ -40,7 +41,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Load persisted state and config
 chrome.storage.local.get(
-  ["enabled", "loopThresholdMin", "minTabSwitches", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "lastTypingTime", "notifiedAt", "tabSwitches", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId", "lastHeartbeat"],
+  ["enabled", "loopThresholdMin", "minTabSwitches", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "lastTypingTime", "notifiedAt", "tabSwitches", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId"],
   (result) => {
     if (result.enabled !== undefined) {
       state.enabled = result.enabled;
@@ -88,26 +89,7 @@ chrome.storage.local.get(
     if (result.videoTabId != null) {
       state.videoTabId = result.videoTabId;
     }
-    // Detect sleep/suspend: if the gap since last heartbeat is large,
-    // the laptop was likely closed. Reset timers so we don't false-alert.
-    const SLEEP_GAP_MS = 60 * 1000; // 60s — heartbeat writes every 25s
-    const storedHeartbeat = result.lastHeartbeat || 0;
-    const gap = Date.now() - storedHeartbeat;
-    if (storedHeartbeat > 0 && gap > SLEEP_GAP_MS && state.enabled) {
-      state.lastTypingTime = Date.now();
-      state.sessionStartTime = Date.now();
-      state.snoozedAt = 0;
-      state.tabSwitches = [];
-      state.notifiedAt = 0;
-      state.pausedForVideo = false;
-      state.pausedAt = 0;
-      state.videoTabId = null;
-      persistState();
-    }
-
     state.ready = true;
-    // Now that we've checked the old heartbeat, start writing new ones
-    startHeartbeat();
     // Validate video state after restart (tab may have closed/stopped)
     validateVideoState().then(() => {
       checkForLoop();
@@ -115,22 +97,6 @@ chrome.storage.local.get(
     });
   }
 );
-
-// Track the last time the service worker was alive, so we can detect sleep gaps.
-// IMPORTANT: do NOT initialize to Date.now() or call persistHeartbeat() here —
-// we must read the old value from storage first before overwriting it.
-let lastHeartbeat = 0;
-let heartbeatInterval = null;
-function persistHeartbeat() {
-  lastHeartbeat = Date.now();
-  chrome.storage.local.set({ lastHeartbeat });
-}
-function startHeartbeat() {
-  persistHeartbeat(); // write the first one now that we've checked the old value
-  if (!heartbeatInterval) {
-    heartbeatInterval = setInterval(persistHeartbeat, 25000);
-  }
-}
 
 // Persist timing state to storage so it survives service worker restarts
 function persistState() {
@@ -478,24 +444,7 @@ function scheduleLoopCheck() {
 chrome.alarms.create("loopCheck", { periodInMinutes: 0.5 });
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "loopCheck" && state.enabled) {
-    // If the alarm fires after a long gap (sleep/suspend), reset instead of alerting.
-    // lastHeartbeat=0 means storage hasn't loaded yet — skip, the load handler will deal with it.
-    if (lastHeartbeat > 0 && (Date.now() - lastHeartbeat) > 60000) {
-      state.lastTypingTime = Date.now();
-      state.sessionStartTime = Date.now();
-      state.snoozedAt = 0;
-      state.tabSwitches = [];
-      state.notifiedAt = 0;
-      state.pausedForVideo = false;
-      state.pausedAt = 0;
-      state.videoTabId = null;
-      persistState();
-      persistHeartbeat();
-      scheduleLoopCheck();
-    } else {
-      checkForLoop();
-      if (lastHeartbeat > 0) persistHeartbeat();
-    }
+    checkForLoop();
   }
 });
 
@@ -505,15 +454,24 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 chrome.idle.setDetectionInterval(60); // report idle after 60s of inactivity
 chrome.idle.onStateChanged.addListener((newState) => {
   if (newState === "active" && state.enabled) {
-    state.lastTypingTime = Date.now();
-    state.sessionStartTime = Date.now();
-    state.snoozedAt = 0;
-    state.tabSwitches = [];
-    state.notifiedAt = 0;
-    persistState();
-    scheduleLoopCheck();
+    // User just returned from idle/locked/sleep — always reset
+    resetAllTimers();
   }
 });
+
+// Reset all timers to now — used on wake from sleep, idle→active, etc.
+function resetAllTimers() {
+  state.lastTypingTime = Date.now();
+  state.sessionStartTime = Date.now();
+  state.snoozedAt = 0;
+  state.tabSwitches = [];
+  state.notifiedAt = 0;
+  state.pausedForVideo = false;
+  state.pausedAt = 0;
+  state.videoTabId = null;
+  persistState();
+  scheduleLoopCheck();
+}
 
 function unPauseVideo() {
   if (!state.pausedForVideo) return;
@@ -569,7 +527,18 @@ function checkForLoop() {
   const now = Date.now();
   const NOTIFY_COOLDOWN_MS = 2 * 60 * 1000; // don't re-notify within 2min
   if (isInLoop() && now - state.notifiedAt > NOTIFY_COOLDOWN_MS) {
-    triggerAlert();
+    // Before alerting, verify the user is actually at the computer.
+    // If idle/locked (e.g. laptop was closed), reset instead of alerting.
+    chrome.idle.queryState(60, (idleState) => {
+      if (idleState !== "active") {
+        resetAllTimers();
+        return;
+      }
+      // Re-check after the async call — state may have changed
+      if (isInLoop() && Date.now() - state.notifiedAt > NOTIFY_COOLDOWN_MS) {
+        triggerAlert();
+      }
+    });
   }
 }
 
