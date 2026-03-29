@@ -719,9 +719,8 @@ function triggerAlert() {
     requireInteraction: true,
   });
 
-  // Try to inject overlay into ALL http tabs, not just the active one.
-  // This ensures the user sees it even if the active tab query fails.
-  chrome.tabs.query({}, (tabs) => {
+  // Show overlay only on the active tab in the focused window
+  chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
     if (!tabs) return;
     for (const tab of tabs) {
       if (!tab.url || !tab.url.startsWith("http")) continue;
