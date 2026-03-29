@@ -33,7 +33,7 @@ chrome.runtime.onInstalled.addListener(() => {
   state.pausedForVideo = false;
   state.pausedAt = 0;
   state.videoTabId = null;
-  chrome.storage.local.remove(["lastHeartbeat", "tabSwitches", "minTabSwitches"]);
+  chrome.storage.local.remove(["lastHeartbeat", "tabSwitches", "minTabSwitches", "chromeUnfocusedAt"]);
   chrome.storage.local.set({
     lastTypingTime: state.lastTypingTime,
     notifiedAt: state.notifiedAt,
@@ -42,7 +42,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Load persisted state and config
 chrome.storage.local.get(
-  ["enabled", "loopThresholdMin", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "ignoredSites", "chromeFocusLost", "lastTypingTime", "notifiedAt", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId", "chromeUnfocusedAt"],
+  ["enabled", "loopThresholdMin", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "ignoredSites", "chromeFocusLost", "lastTypingTime", "notifiedAt", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId"],
   (result) => {
     if (result.enabled !== undefined) {
       state.enabled = result.enabled;
@@ -90,37 +90,13 @@ chrome.storage.local.get(
     if (result.videoTabId != null) {
       state.videoTabId = result.videoTabId;
     }
-    if (result.chromeUnfocusedAt) {
-      state.chromeUnfocusedAt = result.chromeUnfocusedAt;
-    }
     state.ready = true;
-    // On startup, verify Chrome actually lacks focus before trusting stored state.
-    // The service worker may have restarted while Chrome regained focus.
-    if (state.chromeUnfocusedAt > 0) {
-      chrome.windows.getLastFocused((win) => {
-        if (win && win.focused) {
-          // Chrome has focus — clear the stale unfocused state
-          if (config.chromeFocusLost === "reset") {
-            resetAllTimers();
-          } else {
-            const awayDuration = Date.now() - state.chromeUnfocusedAt;
-            state.lastTypingTime += awayDuration;
-            state.chromeUnfocusedAt = 0;
-            persistState();
-          }
-        }
-        validateVideoState().then(() => {
-          checkForLoop();
-          scheduleLoopCheck();
-        });
-      });
-    } else {
-      // Validate video state after restart (tab may have closed/stopped)
-      validateVideoState().then(() => {
-        checkForLoop();
-        scheduleLoopCheck();
-      });
-    }
+    // chromeUnfocusedAt is not persisted — it defaults to 0 (focused) on restart.
+    // The onFocusChanged listener will set it if Chrome is actually unfocused.
+    validateVideoState().then(() => {
+      checkForLoop();
+      scheduleLoopCheck();
+    });
   }
 );
 
@@ -133,7 +109,6 @@ function persistState() {
     pausedForVideo: state.pausedForVideo,
     pausedAt: state.pausedAt,
     videoTabId: state.videoTabId,
-    chromeUnfocusedAt: state.chromeUnfocusedAt,
   });
 }
 
