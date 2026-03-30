@@ -78,19 +78,10 @@
     }
     .header-divider { background: #e2e8f0; height: 1px; width: 100%; }
 
-    /* Zoomer Mode */
-    .zoomer-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px 20px;
-      background: #fff;
-    }
-    .zoomer-bar span {
-      font-size: 11px;
-      font-weight: 600;
-      color: #767683;
-      letter-spacing: 0.02em;
+    /* Gen Z / Zoomer Mode */
+    #zoomer-toggle.active {
+      background: #000666;
+      color: #fff;
     }
     body.zoomer-mode * {
       text-transform: none !important;
@@ -494,13 +485,6 @@
   </header>
   <div class="header-divider"></div>
 
-  <div class="zoomer-bar">
-    <span>zoomer mode</span>
-    <button class="toggle-btn off" id="zoomer-toggle">
-      <div class="toggle-knob"></div>
-    </button>
-  </div>
-
   <main>
     <!-- Status Cards -->
     <section class="status-grid">
@@ -519,9 +503,12 @@
 
     <!-- Configuration -->
     <section>
-      <div class="section-header">
-        <span class="material-symbols-outlined icon">tune</span>
-        <h3>Configuration</h3>
+      <div class="section-header" style="justify-content: space-between;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="material-symbols-outlined icon">tune</span>
+          <h3>Configuration</h3>
+        </div>
+        <button class="config-badge" id="zoomer-toggle" style="cursor:pointer;border:none;transition:all 0.15s;">gen z</button>
       </div>
       <div class="config-controls">
         <!-- Time inactive -->

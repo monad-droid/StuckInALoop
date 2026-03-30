@@ -1,7 +1,7 @@
 // Guard against double-injection (manifest content_scripts + dynamic executeScript)
 if (window.__stuckInALoopLoaded) {
   chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === "showOverlay") showLoopOverlay(message.minutes, message.snoozeDurationMin);
+    if (message.type === "showOverlay") showLoopOverlay(message.minutes, message.snoozeDurationMin, message.zoomerMode);
   });
 } else {
 window.__stuckInALoopLoaded = true;
@@ -102,7 +102,7 @@ if (location.hostname === "www.youtube.com" || location.hostname === "youtube.co
 // Listen for overlay trigger from background
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "showOverlay") {
-    showLoopOverlay(message.minutes, message.snoozeDurationMin);
+    showLoopOverlay(message.minutes, message.snoozeDurationMin, message.zoomerMode);
   } else if (message.type === "dismissOverlay") {
     const overlay = document.getElementById("stuck-in-loop-overlay");
     if (overlay) overlay.remove();
@@ -111,13 +111,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-function showLoopOverlay(minutes, snoozeDurationMin) {
+function showLoopOverlay(minutes, snoozeDurationMin, zoomerMode) {
   snoozeDurationMin = snoozeDurationMin ?? 5;
+  zoomerMode = zoomerMode || false;
   // Don't stack overlays
   if (document.getElementById("stuck-in-loop-overlay")) return;
 
   const overlay = document.createElement("div");
   overlay.id = "stuck-in-loop-overlay";
+  if (zoomerMode) overlay.classList.add("stuck-loop-zoomer");
   overlay.innerHTML = `
     <div id="stuck-loop-ambient-1"></div>
     <div id="stuck-loop-ambient-2"></div>
@@ -319,6 +321,10 @@ function showLoopOverlay(minutes, snoozeDurationMin) {
     }
     #stuck-in-loop-snooze:active {
       transform: scale(0.95);
+    }
+    .stuck-loop-zoomer #stuck-in-loop-dismiss,
+    .stuck-loop-zoomer #stuck-in-loop-snooze {
+      text-transform: none;
     }
   `;
 

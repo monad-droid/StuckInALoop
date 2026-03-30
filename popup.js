@@ -404,16 +404,16 @@ chrome.storage.local.get(["ignoredSitesHintSeen"], (result) => {
   }
 });
 
-// Zoomer mode
+// Gen Z / Zoomer mode
 chrome.storage.local.get(["zoomerMode"], (result) => {
   if (result.zoomerMode) {
     document.body.classList.add("zoomer-mode");
-    setToggleState(zoomerToggle, true);
+    zoomerToggle.classList.add("active");
   }
 });
 zoomerToggle.addEventListener("click", () => {
-  const isOn = zoomerToggle.classList.contains("on");
-  setToggleState(zoomerToggle, !isOn);
+  const isOn = zoomerToggle.classList.contains("active");
+  zoomerToggle.classList.toggle("active", !isOn);
   document.body.classList.toggle("zoomer-mode", !isOn);
   chrome.storage.local.set({ zoomerMode: !isOn });
 });

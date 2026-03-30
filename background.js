@@ -638,23 +638,26 @@ function triggerAlert() {
   });
 
   // Show overlay on all http tabs so the user always sees it
-  chrome.tabs.query({}, (tabs) => {
-    if (!tabs) return;
-    for (const tab of tabs) {
-      if (!tab.url || !tab.url.startsWith("http")) continue;
-      tryShowOverlay(tab.id, minutes);
-    }
+  chrome.storage.local.get(["zoomerMode"], (result) => {
+    const zoomerMode = result.zoomerMode || false;
+    chrome.tabs.query({}, (tabs) => {
+      if (!tabs) return;
+      for (const tab of tabs) {
+        if (!tab.url || !tab.url.startsWith("http")) continue;
+        tryShowOverlay(tab.id, minutes, zoomerMode);
+      }
+    });
   });
 }
 
-function tryShowOverlay(tabId, minutes) {
+function tryShowOverlay(tabId, minutes, zoomerMode) {
   chrome.scripting.executeScript({
     target: { tabId },
     files: ["content.js"],
   }, () => {
     if (chrome.runtime.lastError) return;
     setTimeout(() => {
-      chrome.tabs.sendMessage(tabId, { type: "showOverlay", minutes, snoozeDurationMin: config.snoozeDurationMin }).catch(() => {});
+      chrome.tabs.sendMessage(tabId, { type: "showOverlay", minutes, snoozeDurationMin: config.snoozeDurationMin, zoomerMode: zoomerMode || false }).catch(() => {});
     }, 200);
   });
 }
