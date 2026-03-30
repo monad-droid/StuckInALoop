@@ -294,7 +294,12 @@ function update() {
     if (response.chromeUnfocused) {
       statusEl.textContent = "Chrome Unfocused";
       statusEl.className = "state-value";
-      statusSubtitle.textContent = "Timer " + (response.chromeFocusLost === "pause" ? "paused" : "will reset") + " while away";
+      if (response.chromeFocusLost === "pause") {
+        statusSubtitle.textContent = "Timer paused while away";
+      } else {
+        statusSubtitle.textContent = "Timer will reset while away";
+        typingTimeEl.textContent = "0:00";
+      }
     } else if (response.onIgnoredSite) {
       statusEl.textContent = "Ignored Site";
       statusEl.className = "state-value";
