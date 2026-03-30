@@ -648,18 +648,17 @@ function triggerAlert() {
 }
 
 function tryShowOverlay(tabId, minutes) {
-  chrome.tabs.sendMessage(tabId, { type: "showOverlay", minutes, snoozeDurationMin: config.snoozeDurationMin }, (response) => {
-    if (chrome.runtime.lastError) {
-      // Content script not loaded — inject dynamically
-      chrome.scripting.executeScript({
-        target: { tabId },
-        files: ["content.js"],
-      }, () => {
-        if (chrome.runtime.lastError) return;
-        setTimeout(() => {
-          chrome.tabs.sendMessage(tabId, { type: "showOverlay", minutes, snoozeDurationMin: config.snoozeDurationMin });
-        }, 200);
-      });
-    }
+  // Always try to inject the content script first (it's a no-op if already loaded),
+  // then send the overlay message. This is more reliable than checking runtime.lastError
+  // which can silently fail in MV3.
+  chrome.scripting.executeScript({
+    target: { tabId },
+    files: ["content.js"],
+  }, () => {
+    // Ignore injection errors (e.g. chrome:// pages)
+    if (chrome.runtime.lastError) return;
+    setTimeout(() => {
+      chrome.tabs.sendMessage(tabId, { type: "showOverlay", minutes, snoozeDurationMin: config.snoozeDurationMin }).catch(() => {});
+    }, 200);
   });
 }
