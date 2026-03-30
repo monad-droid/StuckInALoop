@@ -1,7 +1,7 @@
 // Guard against double-injection (manifest content_scripts + dynamic executeScript)
 if (window.__stuckInALoopLoaded) {
   chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === "showOverlay") showLoopOverlay(message.minutes, message.snoozeDurationMin, message.hostname);
+    if (message.type === "showOverlay") showLoopOverlay(message.minutes, message.snoozeDurationMin);
   });
 } else {
 window.__stuckInALoopLoaded = true;
@@ -102,7 +102,7 @@ if (location.hostname === "www.youtube.com" || location.hostname === "youtube.co
 // Listen for overlay trigger from background
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "showOverlay") {
-    showLoopOverlay(message.minutes, message.snoozeDurationMin, message.hostname);
+    showLoopOverlay(message.minutes, message.snoozeDurationMin);
   } else if (message.type === "dismissOverlay") {
     const overlay = document.getElementById("stuck-in-loop-overlay");
     if (overlay) overlay.remove();
@@ -111,19 +111,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-function showLoopOverlay(minutes, snoozeDurationMin, hostname) {
+function showLoopOverlay(minutes, snoozeDurationMin) {
   snoozeDurationMin = snoozeDurationMin ?? 5;
-  hostname = hostname || "";
   // Don't stack overlays
   if (document.getElementById("stuck-in-loop-overlay")) return;
-
-  const ignoreHtml = hostname ? `
-    <div id="stuck-loop-ignore-prompt">
-      <span id="stuck-loop-ignore-text">Always ignore <strong>${hostname}</strong>?</span>
-      <button id="stuck-loop-ignore-yes">Yes</button>
-      <button id="stuck-loop-ignore-no">No</button>
-    </div>
-  ` : '';
 
   const overlay = document.createElement("div");
   overlay.id = "stuck-in-loop-overlay";
@@ -143,7 +134,6 @@ function showLoopOverlay(minutes, snoozeDurationMin, hostname) {
         <button id="stuck-in-loop-dismiss">I'll stay focused</button>
         ${snoozeDurationMin ? `<button id="stuck-in-loop-snooze">Snooze ${snoozeDurationMin} min</button>` : ''}
       </div>
-      ${ignoreHtml}
     </div>
   `;
 
@@ -330,49 +320,6 @@ function showLoopOverlay(minutes, snoozeDurationMin, hostname) {
     #stuck-in-loop-snooze:active {
       transform: scale(0.95);
     }
-
-    #stuck-loop-ignore-prompt {
-      margin-top: 24px;
-      padding-top: 20px;
-      border-top: 1px solid rgba(0, 6, 102, 0.08);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    #stuck-loop-ignore-text {
-      font-family: 'Inter', sans-serif;
-      font-size: 13px;
-      color: #767683;
-    }
-    #stuck-loop-ignore-text strong {
-      color: #454652;
-      font-weight: 600;
-    }
-
-    #stuck-loop-ignore-yes,
-    #stuck-loop-ignore-no {
-      font-family: 'Inter', sans-serif;
-      font-size: 12px;
-      font-weight: 600;
-      padding: 6px 14px;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    #stuck-loop-ignore-yes {
-      background: #e0e0ff;
-      color: #000666;
-    }
-    #stuck-loop-ignore-yes:hover { background: #d0d0f0; }
-    #stuck-loop-ignore-no {
-      background: #f3f4f5;
-      color: #767683;
-    }
-    #stuck-loop-ignore-no:hover { background: #e1e3e4; }
   `;
 
   document.documentElement.appendChild(style);
@@ -393,24 +340,6 @@ function showLoopOverlay(minutes, snoozeDurationMin, hostname) {
     });
   }
 
-  const ignoreYes = document.getElementById("stuck-loop-ignore-yes");
-  if (ignoreYes) {
-    ignoreYes.addEventListener("click", () => {
-      safeSendMessage({ type: "ignoreSite", hostname });
-      overlay.remove();
-      style.remove();
-    });
-  }
-
-  const ignoreNo = document.getElementById("stuck-loop-ignore-no");
-  if (ignoreNo) {
-    ignoreNo.addEventListener("click", () => {
-      safeSendMessage({ type: "declineIgnoreSite", hostname });
-      // Just hide the prompt, keep the overlay
-      const prompt = document.getElementById("stuck-loop-ignore-prompt");
-      if (prompt) prompt.remove();
-    });
-  }
 }
 
 } // end guard

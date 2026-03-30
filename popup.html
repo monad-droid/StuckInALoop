@@ -235,6 +235,34 @@
       font-family: 'Inter', sans-serif;
     }
     .add-site-row button:hover { background: #4355b9; }
+    .hint-banner {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 10px 12px;
+      background: #eef0ff;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+    .hint-banner p {
+      flex: 1;
+      font-size: 11px;
+      font-weight: 500;
+      color: #4355b9;
+      line-height: 1.4;
+      margin: 0;
+    }
+    .hint-banner .hint-dismiss {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #4355b9;
+      opacity: 0.5;
+      padding: 0;
+      display: flex;
+      flex-shrink: 0;
+    }
+    .hint-banner .hint-dismiss:hover { opacity: 1; }
 
     /* Configuration Section */
     .section-header {
@@ -533,6 +561,12 @@
         <div class="config-card-header">
           <label>Ignored websites</label>
           <span class="config-badge" id="ignored-badge">none</span>
+        </div>
+        <div class="hint-banner" id="ignored-hint" style="display:none;">
+          <p>Tip: Add websites you don't want tracked. Choose to pause or reset the timer for each site.</p>
+          <button class="hint-dismiss" id="ignored-hint-dismiss">
+            <span class="material-symbols-outlined" style="font-size:16px;">close</span>
+          </button>
         </div>
         <div class="ignored-sites-list" id="ignored-sites-list"></div>
         <div class="add-site-row">

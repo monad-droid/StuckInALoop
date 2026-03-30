@@ -405,6 +405,18 @@ function saveConfig() {
   });
 }
 
+// One-time hint for ignored websites
+chrome.storage.local.get(["ignoredSitesHintSeen"], (result) => {
+  if (!result.ignoredSitesHintSeen) {
+    const hint = document.getElementById("ignored-hint");
+    hint.style.display = "flex";
+    document.getElementById("ignored-hint-dismiss").addEventListener("click", () => {
+      hint.style.display = "none";
+      chrome.storage.local.set({ ignoredSitesHintSeen: true });
+    });
+  }
+});
+
 renderInactivePeriods();
 renderIgnoredSites();
 update();

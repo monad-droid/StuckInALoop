@@ -7,7 +7,6 @@ const DEFAULTS = {
   inactivePeriods: [{ start: 8, end: 17, days: [1, 2, 3, 4, 5] }], // default: don't monitor 8am–5pm, weekdays only
   ignoredSites: [], // [{domain, action: "pause"|"reset"}] — sites to skip tracking on
   chromeFocusLost: "pause", // "pause" or "reset" — what to do when Chrome loses focus
-  declinedIgnoreSites: [], // hostnames where user said "no" to ignore prompt
 };
 
 let config = { ...DEFAULTS };
@@ -34,7 +33,7 @@ chrome.runtime.onInstalled.addListener(() => {
   state.pausedForVideo = false;
   state.pausedAt = 0;
   state.videoTabId = null;
-  chrome.storage.local.remove(["lastHeartbeat", "tabSwitches", "minTabSwitches", "chromeUnfocusedAt"]);
+  chrome.storage.local.remove(["lastHeartbeat", "tabSwitches", "minTabSwitches", "chromeUnfocusedAt", "declinedIgnoreSites"]);
   chrome.storage.local.set({
     lastTypingTime: state.lastTypingTime,
     notifiedAt: state.notifiedAt,
@@ -43,7 +42,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // Load persisted state and config
 chrome.storage.local.get(
-  ["enabled", "loopThresholdMin", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "ignoredSites", "chromeFocusLost", "declinedIgnoreSites", "lastTypingTime", "notifiedAt", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId"],
+  ["enabled", "loopThresholdMin", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "ignoredSites", "chromeFocusLost", "lastTypingTime", "notifiedAt", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId"],
   (result) => {
     if (result.enabled !== undefined) {
       state.enabled = result.enabled;
@@ -71,9 +70,6 @@ chrome.storage.local.get(
     }
     if (result.chromeFocusLost !== undefined) {
       config.chromeFocusLost = result.chromeFocusLost;
-    }
-    if (result.declinedIgnoreSites !== undefined) {
-      config.declinedIgnoreSites = result.declinedIgnoreSites;
     }
     // Restore persisted state so it survives service worker restarts
     if (result.lastTypingTime) {
@@ -381,39 +377,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     });
     sendResponse({ ok: true });
-  } else if (message.type === "ignoreSite") {
-    // Add site to ignored list with "pause" action, then dismiss
-    const hostname = message.hostname;
-    if (hostname && !config.ignoredSites.some((e) => (typeof e === "string" ? e : e.domain) === hostname)) {
-      config.ignoredSites.push({ domain: hostname, action: "pause" });
-      chrome.storage.local.set({ ignoredSites: config.ignoredSites });
-    }
-    // Dismiss like normal
-    state.lastTypingTime = Date.now();
-    state.sessionStartTime = Date.now();
-    state.snoozedAt = 0;
-    state.notifiedAt = 0;
-    state.pausedForVideo = false;
-    state.pausedAt = 0;
-    state.videoTabId = null;
-    persistState();
-    scheduleLoopCheck();
-    updateIgnoredSiteState();
-    chrome.tabs.query({ url: ["http://*/*", "https://*/*"] }, (tabs) => {
-      for (const tab of tabs) {
-        chrome.tabs.sendMessage(tab.id, { type: "dismissOverlay" }).catch(() => {});
-      }
-    });
-    sendResponse({ ok: true });
-  } else if (message.type === "declineIgnoreSite") {
-    // Never ask again for this hostname
-    const hostname = message.hostname;
-    if (hostname && !(config.declinedIgnoreSites || []).includes(hostname)) {
-      config.declinedIgnoreSites = config.declinedIgnoreSites || [];
-      config.declinedIgnoreSites.push(hostname);
-      chrome.storage.local.set({ declinedIgnoreSites: config.declinedIgnoreSites });
-    }
-    sendResponse({ ok: true });
   } else if (message.type === "setConfig") {
     if (message.loopThresholdMin !== undefined) {
       config.loopThresholdMin = message.loopThresholdMin;
@@ -679,29 +642,19 @@ function triggerAlert() {
     if (!tabs) return;
     for (const tab of tabs) {
       if (!tab.url || !tab.url.startsWith("http")) continue;
-      let hostname = "";
-      try { hostname = new URL(tab.url).hostname; } catch {}
-      const alreadyIgnored = matchesIgnoredSite(tab.url) !== null;
-      const declined = (config.declinedIgnoreSites || []).includes(hostname);
-      const showIgnorePrompt = hostname && !alreadyIgnored && !declined;
-      tryShowOverlay(tab.id, minutes, showIgnorePrompt ? hostname : "");
+      tryShowOverlay(tab.id, minutes);
     }
   });
 }
 
-function tryShowOverlay(tabId, minutes, hostname) {
+function tryShowOverlay(tabId, minutes) {
   chrome.scripting.executeScript({
     target: { tabId },
     files: ["content.js"],
   }, () => {
     if (chrome.runtime.lastError) return;
     setTimeout(() => {
-      chrome.tabs.sendMessage(tabId, {
-        type: "showOverlay",
-        minutes,
-        snoozeDurationMin: config.snoozeDurationMin,
-        hostname: hostname || "",
-      }).catch(() => {});
+      chrome.tabs.sendMessage(tabId, { type: "showOverlay", minutes, snoozeDurationMin: config.snoozeDurationMin }).catch(() => {});
     }, 200);
   });
 }
