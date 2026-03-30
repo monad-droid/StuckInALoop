@@ -486,6 +486,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.ignoredSites !== undefined) {
       config.ignoredSites = message.ignoredSites;
       chrome.storage.local.set({ ignoredSites: config.ignoredSites });
+      updateIgnoredSiteState();
     }
     if (message.chromeFocusLost !== undefined) {
       config.chromeFocusLost = message.chromeFocusLost;
