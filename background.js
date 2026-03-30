@@ -609,7 +609,17 @@ function checkForLoop() {
   if (!state.enabled || !state.ready || state.onIgnoredSite || state.chromeUnfocusedAt > 0 || isInInactivePeriod()) return;
 
   const now = Date.now();
-  const NOTIFY_COOLDOWN_MS = Math.min(2 * 60 * 1000, config.loopThresholdMin * 60 * 1000);
+  const thresholdMs = config.loopThresholdMin * 60 * 1000;
+  const elapsed = now - state.lastTypingTime;
+
+  // If elapsed time is way past the threshold (2x+), the user was away
+  // (laptop closed, slept, etc.) — not actually browsing. Reset silently.
+  if (elapsed > thresholdMs * 2) {
+    resetAllTimers();
+    return;
+  }
+
+  const NOTIFY_COOLDOWN_MS = Math.min(2 * 60 * 1000, thresholdMs);
   if (isInLoop() && now - state.notifiedAt > NOTIFY_COOLDOWN_MS) {
     triggerAlert();
   }
