@@ -609,17 +609,16 @@ function getActiveTabUrl() {
 function updateIgnoredSiteState() {
   getActiveTabUrl().then((url) => {
     const match = matchesIgnoredSite(url);
-    if (match && !state.onIgnoredSite) {
-      // Entering an ignored site — freeze the timer while here
+    if (match) {
       const action = (typeof match === "string") ? "reset" : (match.action || "reset");
+      const wasAlreadyIgnored = state.onIgnoredSite;
       state.onIgnoredSite = true;
       state.ignoredSitePausedAt = Date.now();
       if (action === "reset") {
-        // Reset to zero AND freeze
         state.ignoredSiteFrozenMs = 0;
         state.lastTypingTime = Date.now();
-      } else {
-        // Pause — save the current timer value to display while frozen
+      } else if (!wasAlreadyIgnored) {
+        // Only capture frozen value when first entering, not on action change
         state.ignoredSiteFrozenMs = Date.now() - state.lastTypingTime;
       }
       persistState();
