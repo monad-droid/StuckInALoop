@@ -518,10 +518,18 @@ function scheduleLoopCheck() {
 }
 
 // Backup alarm in case the service worker restarts and loses the timeout.
-// Chrome MV3 minimum alarm period is 0.5 minutes (30 seconds).
+// Also detects when an inactive period ends and resets the timer.
+let wasInInactivePeriod = false;
 chrome.alarms.create("loopCheck", { periodInMinutes: 0.5 });
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "loopCheck" && state.enabled) {
+    const inInactive = isInInactivePeriod();
+    if (wasInInactivePeriod && !inInactive) {
+      // Just exited an inactive period — start fresh
+      state.lastTypingTime = Date.now();
+      persistState();
+    }
+    wasInInactivePeriod = inInactive;
     checkForLoop();
   }
 });
