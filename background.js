@@ -23,6 +23,7 @@ let state = {
   onIgnoredSite: false, // true when active tab is on an ignored site
   ignoredSitePausedAt: 0, // timestamp when ignored-site pause started
   ignoredSiteFrozenMs: 0, // frozen timer value to display while on ignored site
+  ignoredSiteAction: "", // "pause" or "reset" — last action applied
   chromeUnfocusedAt: 0, // timestamp when Chrome lost focus (0 = focused)
   ready: false, // true once persisted state has been loaded
 };
@@ -548,6 +549,7 @@ function resetAllTimers() {
   state.onIgnoredSite = false;
   state.ignoredSitePausedAt = 0;
   state.ignoredSiteFrozenMs = 0;
+  state.ignoredSiteAction = "";
   state.chromeUnfocusedAt = 0;
   persistState();
   scheduleLoopCheck();
@@ -613,21 +615,29 @@ function updateIgnoredSiteState() {
       const action = (typeof match === "string") ? "reset" : (match.action || "reset");
       const wasAlreadyIgnored = state.onIgnoredSite;
       state.onIgnoredSite = true;
+      state.ignoredSiteAction = action;
       state.ignoredSitePausedAt = Date.now();
       if (action === "reset") {
         state.ignoredSiteFrozenMs = 0;
         state.lastTypingTime = Date.now();
       } else if (!wasAlreadyIgnored) {
-        // Only capture frozen value when first entering, not on action change
         state.ignoredSiteFrozenMs = Date.now() - state.lastTypingTime;
       }
       persistState();
     } else if (!match && state.onIgnoredSite) {
-      // Leaving an ignored site — reset timer to now so it starts fresh
-      state.lastTypingTime = Date.now();
+      // Leaving an ignored site
+      if (state.ignoredSiteAction === "pause" && state.ignoredSitePausedAt > 0) {
+        // Pause mode — credit the time so timer resumes where it was
+        const pauseDuration = Date.now() - state.ignoredSitePausedAt;
+        state.lastTypingTime += pauseDuration;
+      } else {
+        // Reset mode — start fresh
+        state.lastTypingTime = Date.now();
+      }
       state.onIgnoredSite = false;
       state.ignoredSitePausedAt = 0;
       state.ignoredSiteFrozenMs = 0;
+      state.ignoredSiteAction = "";
       persistState();
       scheduleLoopCheck();
     }
