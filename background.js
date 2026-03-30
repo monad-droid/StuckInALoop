@@ -40,16 +40,20 @@ chrome.runtime.onInstalled.addListener(() => {
     notifiedAt: state.notifiedAt,
   });
   // Inject content script into all existing tabs so typing/click
-  // detection works without requiring a page refresh
-  chrome.tabs.query({ url: ["http://*/*", "https://*/*"] }, (tabs) => {
-    if (!tabs) return;
-    for (const tab of tabs) {
-      chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        files: ["content.js"],
-      }).catch(() => {});
-    }
-  });
+  // detection works without requiring a page refresh.
+  // Delay slightly to ensure permissions are fully ready after install.
+  setTimeout(() => {
+    chrome.tabs.query({}, (tabs) => {
+      if (!tabs) return;
+      for (const tab of tabs) {
+        if (!tab.url || !tab.url.startsWith("http")) continue;
+        chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ["content.js"],
+        }).catch(() => {});
+      }
+    });
+  }, 500);
 });
 
 // Load persisted state and config
