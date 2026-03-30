@@ -260,9 +260,10 @@ function handleNavigation(details) {
 }
 chrome.webNavigation.onCommitted.addListener((details) => {
   if (!state.enabled || details.frameId !== 0) return;
-  if (config.navResetsTimer && ["typed", "generated", "form_submit", "auto_bookmark"].includes(details.transitionType)) {
+  const t = details.transitionType;
+  if (config.navResetsTimer && (t === "typed" || t === "form_submit" || t === "auto_bookmark")) {
     handleNavigation(details);
-  } else if (config.clickResetsTimer && details.transitionType === "link") {
+  } else if (config.clickResetsTimer && (t === "link" || t === "generated")) {
     handleNavigation(details);
   }
 });
