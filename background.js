@@ -267,9 +267,9 @@ chrome.webNavigation.onCommitted.addListener((details) => {
     handleNavigation(details);
   }
 });
-// SPA navigations (pushState/replaceState) don't fire onCommitted
+// SPA navigations (pushState/replaceState) are caused by clicking, not typing
 chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
-  if (config.navResetsTimer) {
+  if (config.clickResetsTimer) {
     handleNavigation(details);
   }
 });
@@ -300,8 +300,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     sendResponse({ ok: true });
   } else if (message.type === "urlChange") {
-    // SPA navigation (pushState/replaceState/hashchange) detected by content script
-    if (config.navResetsTimer) {
+    // SPA navigation (pushState/replaceState/hashchange) — caused by clicking
+    if (config.clickResetsTimer) {
       if (state.pausedForVideo) {
         state.lastTypingTime = Date.now();
         state.pausedAt = Date.now();
