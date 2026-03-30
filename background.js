@@ -385,36 +385,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         config.snoozeDurationMin = Math.max(0, config.loopThresholdMin - 1);
         chrome.storage.local.set({ snoozeDurationMin: config.snoozeDurationMin });
       }
-      // If mid-snooze, recalculate offsets for the new threshold
-      if (state.snoozedAt > 0) {
-        const elapsed = Date.now() - state.snoozedAt;
-        const snoozeCooldownMs = config.snoozeDurationMin * 60 * 1000;
-        const remainingSnooze = Math.max(0, snoozeCooldownMs - elapsed);
-        const thresholdMs = config.loopThresholdMin * 60 * 1000;
-        const NOTIFY_COOLDOWN_MS = 2 * 60 * 1000;
-        state.lastTypingTime = Date.now() - thresholdMs + remainingSnooze;
-        state.notifiedAt = Date.now() - NOTIFY_COOLDOWN_MS + remainingSnooze;
-        persistState();
-        scheduleLoopCheck();
-      }
     }
     if (message.snoozeDurationMin !== undefined) {
-      // Enforce snooze < threshold
-      const oldSnoozeDurationMin = config.snoozeDurationMin;
       config.snoozeDurationMin = Math.min(message.snoozeDurationMin, config.loopThresholdMin - 1);
       chrome.storage.local.set({ snoozeDurationMin: config.snoozeDurationMin });
-      // If mid-snooze, recalculate offsets so the new duration takes effect
-      if (state.snoozedAt > 0 && config.snoozeDurationMin !== oldSnoozeDurationMin) {
-        const elapsed = Date.now() - state.snoozedAt;
-        const newSnoozeCooldownMs = config.snoozeDurationMin * 60 * 1000;
-        const remainingSnooze = Math.max(0, newSnoozeCooldownMs - elapsed);
-        const thresholdMs = config.loopThresholdMin * 60 * 1000;
-        const NOTIFY_COOLDOWN_MS = 2 * 60 * 1000;
-        state.lastTypingTime = Date.now() - thresholdMs + remainingSnooze;
-        state.notifiedAt = Date.now() - NOTIFY_COOLDOWN_MS + remainingSnooze;
-        persistState();
-        scheduleLoopCheck();
-      }
     }
     if (message.navResetsTimer !== undefined) {
       config.navResetsTimer = message.navResetsTimer;
