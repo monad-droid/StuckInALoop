@@ -267,12 +267,9 @@ chrome.webNavigation.onCommitted.addListener((details) => {
     handleNavigation(details);
   }
 });
-// SPA navigations (pushState/replaceState) are caused by clicking, not typing
-chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
-  if (config.clickResetsTimer) {
-    handleNavigation(details);
-  }
-});
+// SPA navigations are detected by the content script's urlChange message.
+// onHistoryStateUpdated is not used because it also fires on initial page
+// loads when sites do pushState, causing false resets on typed URLs.
 
 // Listen for typing reports from content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
