@@ -261,9 +261,9 @@ function handleNavigation(details) {
 chrome.webNavigation.onCommitted.addListener((details) => {
   if (!state.enabled || details.frameId !== 0) return;
   const t = details.transitionType;
-  if (config.navResetsTimer && (t === "typed" || t === "form_submit" || t === "auto_bookmark")) {
+  if (config.navResetsTimer && (t === "typed" || t === "generated" || t === "form_submit" || t === "auto_bookmark")) {
     handleNavigation(details);
-  } else if (config.clickResetsTimer && (t === "link" || t === "generated")) {
+  } else if (config.clickResetsTimer && t === "link") {
     handleNavigation(details);
   }
 });
