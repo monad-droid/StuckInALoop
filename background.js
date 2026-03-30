@@ -638,8 +638,8 @@ function triggerAlert() {
   });
 
   // Show overlay on all http tabs so the user always sees it
-  chrome.storage.local.get(["zoomerMode"], (result) => {
-    const zoomerMode = result.zoomerMode || false;
+  chrome.storage.local.get(["genzMode"], (result) => {
+    const zoomerMode = result.genzMode || false;
     chrome.tabs.query({}, (tabs) => {
       if (!tabs) return;
       for (const tab of tabs) {

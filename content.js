@@ -119,7 +119,7 @@ function showLoopOverlay(minutes, snoozeDurationMin, zoomerMode) {
 
   const overlay = document.createElement("div");
   overlay.id = "stuck-in-loop-overlay";
-  if (zoomerMode) overlay.classList.add("stuck-loop-zoomer");
+  if (zoomerMode) overlay.classList.add("stuck-loop-lowercase");
   overlay.innerHTML = `
     <div id="stuck-loop-ambient-1"></div>
     <div id="stuck-loop-ambient-2"></div>
@@ -322,8 +322,8 @@ function showLoopOverlay(minutes, snoozeDurationMin, zoomerMode) {
     #stuck-in-loop-snooze:active {
       transform: scale(0.95);
     }
-    .stuck-loop-zoomer #stuck-in-loop-dismiss,
-    .stuck-loop-zoomer #stuck-in-loop-snooze {
+    .stuck-loop-lowercase #stuck-in-loop-dismiss,
+    .stuck-loop-lowercase #stuck-in-loop-snooze {
       text-transform: none;
     }
   `;

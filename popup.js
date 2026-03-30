@@ -404,18 +404,18 @@ chrome.storage.local.get(["ignoredSitesHintSeen"], (result) => {
   }
 });
 
-// Gen Z / Zoomer mode
-chrome.storage.local.get(["zoomerMode"], (result) => {
-  if (result.zoomerMode) {
-    document.body.classList.add("zoomer-mode");
+// Gen Z mode — ON = lowercase everything
+chrome.storage.local.get(["genzMode"], (result) => {
+  if (result.genzMode) {
+    document.body.classList.add("genz-mode");
     zoomerToggle.classList.add("active");
   }
 });
 zoomerToggle.addEventListener("click", () => {
   const isOn = zoomerToggle.classList.contains("active");
   zoomerToggle.classList.toggle("active", !isOn);
-  document.body.classList.toggle("zoomer-mode", !isOn);
-  chrome.storage.local.set({ zoomerMode: !isOn });
+  document.body.classList.toggle("genz-mode", !isOn);
+  chrome.storage.local.set({ genzMode: !isOn });
 });
 
 renderInactivePeriods();
