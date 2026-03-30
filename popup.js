@@ -13,10 +13,8 @@ const ytPauseToggle = document.getElementById("yt-pause-toggle");
 const clickResetsToggle = document.getElementById("click-resets-toggle");
 const chromeFocusToggle = document.getElementById("chrome-focus-toggle");
 const inactiveList = document.getElementById("inactive-periods-list");
-const inactiveBadge = document.getElementById("inactive-badge");
 const addPeriodBtn = document.getElementById("add-period-btn");
 const ignoredSitesList = document.getElementById("ignored-sites-list");
-const ignoredBadge = document.getElementById("ignored-badge");
 const addSiteInput = document.getElementById("add-site-input");
 const addSiteBtn = document.getElementById("add-site-btn");
 
@@ -101,16 +99,6 @@ function renderInactivePeriods() {
     inactiveList.appendChild(row);
   });
 
-  // Update badge
-  if (currentInactivePeriods.length === 0) {
-    inactiveBadge.textContent = "none";
-  } else if (allDay) {
-    inactiveBadge.textContent = "all day";
-  } else {
-    const n = currentInactivePeriods.length;
-    inactiveBadge.textContent = n + (n === 1 ? " block" : " blocks");
-  }
-
   // Bind time select events
   inactiveList.querySelectorAll(".period-start").forEach((sel) => {
     sel.addEventListener("change", (e) => {
@@ -189,8 +177,6 @@ function renderIgnoredSites() {
     `;
     ignoredSitesList.appendChild(row);
   });
-  ignoredBadge.textContent = currentIgnoredSites.length === 0 ? "none" : currentIgnoredSites.length + " site" + (currentIgnoredSites.length === 1 ? "" : "s");
-
   ignoredSitesList.querySelectorAll(".remove-site").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       const idx = parseInt(e.currentTarget.dataset.index);
