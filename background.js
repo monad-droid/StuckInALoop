@@ -103,6 +103,16 @@ chrome.storage.local.get(
       state.videoTabId = result.videoTabId;
     }
     state.ready = true;
+    // Inject content script into all http tabs to cover pre-install tabs
+    chrome.tabs.query({ url: ["http://*/*", "https://*/*"] }, (tabs) => {
+      if (!tabs) return;
+      for (const tab of tabs) {
+        chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ["content.js"],
+        }).catch(() => {});
+      }
+    });
     // chromeUnfocusedAt is not persisted — it defaults to 0 (focused) on restart.
     // The onFocusChanged listener will set it if Chrome is actually unfocused.
     validateVideoState().then(() => {
