@@ -231,7 +231,6 @@ chrome.webNavigation.onCommitted.addListener((details) => {
   } else if (config.clickResetsTimer && details.transitionType === "link") {
     handleNavigation(details);
   }
-  }
 });
 // SPA navigations (pushState/replaceState) don't fire onCommitted
 chrome.webNavigation.onHistoryStateUpdated.addListener(handleNavigation);
