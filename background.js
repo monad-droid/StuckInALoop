@@ -39,6 +39,17 @@ chrome.runtime.onInstalled.addListener(() => {
     lastTypingTime: state.lastTypingTime,
     notifiedAt: state.notifiedAt,
   });
+  // Inject content script into all existing tabs so typing/click
+  // detection works without requiring a page refresh
+  chrome.tabs.query({ url: ["http://*/*", "https://*/*"] }, (tabs) => {
+    if (!tabs) return;
+    for (const tab of tabs) {
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ["content.js"],
+      }).catch(() => {});
+    }
+  });
 });
 
 // Load persisted state and config
