@@ -39,23 +39,30 @@ chrome.runtime.onInstalled.addListener(async (details) => {
     lastTypingTime: state.lastTypingTime,
     notifiedAt: state.notifiedAt,
   });
-  // Inject content script into all existing tabs so typing/click
-  // detection works without requiring a page refresh.
-  // Must use async/await with per-tab try/catch so a failure on one
-  // restricted or discarded tab doesn't kill the entire loop.
+  // Inject content script into all existing tabs concurrently.
+  // Uses Promise.allSettled so a failure on any tab can't affect others.
   const allTabs = await chrome.tabs.query({});
-  for (const tab of allTabs) {
-    if (tab.url && tab.url.startsWith("http")) {
-      try {
-        await chrome.scripting.executeScript({
-          target: { tabId: tab.id, allFrames: false },
-          files: ["content.js"],
-        });
-      } catch (e) {
-        // Tab may be discarded, suspended, or restricted — skip it
-      }
-    }
-  }
+  const restrictedDomains = [
+    "chrome.google.com/webstore",
+    "chromewebstore.google.com",
+    "microsoftedge.microsoft.com/addons",
+  ];
+  const injectableTabs = allTabs.filter((tab) => {
+    if (!tab.url || !tab.url.startsWith("http")) return false;
+    if (restrictedDomains.some((d) => tab.url.includes(d))) return false;
+    return true;
+  });
+  const results = await Promise.allSettled(
+    injectableTabs.map((tab) =>
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id, allFrames: false },
+        files: ["content.js"],
+      })
+    )
+  );
+  const successes = results.filter((r) => r.status === "fulfilled").length;
+  const failures = results.filter((r) => r.status === "rejected").length;
+  console.log(`Content script injection: ${successes} success, ${failures} failed out of ${injectableTabs.length} tabs`);
 });
 
 // Load persisted state and config
