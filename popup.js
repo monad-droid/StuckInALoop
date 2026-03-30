@@ -1,3 +1,4 @@
+const zoomerToggle = document.getElementById("zoomer-toggle");
 const statusEl = document.getElementById("status");
 const statusSubtitle = document.getElementById("status-subtitle");
 const typingTimeEl = document.getElementById("typing-time");
@@ -401,6 +402,20 @@ chrome.storage.local.get(["ignoredSitesHintSeen"], (result) => {
       chrome.storage.local.set({ ignoredSitesHintSeen: true });
     });
   }
+});
+
+// Zoomer mode
+chrome.storage.local.get(["zoomerMode"], (result) => {
+  if (result.zoomerMode) {
+    document.body.classList.add("zoomer-mode");
+    setToggleState(zoomerToggle, true);
+  }
+});
+zoomerToggle.addEventListener("click", () => {
+  const isOn = zoomerToggle.classList.contains("on");
+  setToggleState(zoomerToggle, !isOn);
+  document.body.classList.toggle("zoomer-mode", !isOn);
+  chrome.storage.local.set({ zoomerMode: !isOn });
 });
 
 renderInactivePeriods();

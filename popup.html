@@ -78,6 +78,24 @@
     }
     .header-divider { background: #e2e8f0; height: 1px; width: 100%; }
 
+    /* Zoomer Mode */
+    .zoomer-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 20px;
+      background: #fff;
+    }
+    .zoomer-bar span {
+      font-size: 11px;
+      font-weight: 600;
+      color: #767683;
+      letter-spacing: 0.02em;
+    }
+    body.zoomer-mode * {
+      text-transform: none !important;
+    }
+
     /* Main */
     main { padding: 16px 20px; }
     main > * + * { margin-top: 24px; }
@@ -475,6 +493,13 @@
     </div>
   </header>
   <div class="header-divider"></div>
+
+  <div class="zoomer-bar">
+    <span>zoomer mode</span>
+    <button class="toggle-btn off" id="zoomer-toggle">
+      <div class="toggle-knob"></div>
+    </button>
+  </div>
 
   <main>
     <!-- Status Cards -->
