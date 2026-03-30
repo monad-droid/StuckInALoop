@@ -57,6 +57,9 @@ chrome.runtime.onInstalled.addListener(async (details) => {
       chrome.scripting.executeScript({
         target: { tabId: tab.id, allFrames: false },
         files: ["content.js"],
+      }).catch((err) => {
+        console.warn(`Injection failed - Tab ${tab.id} (${tab.url}):`, err.message);
+        throw err;
       })
     )
   );
