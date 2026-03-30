@@ -43,17 +43,8 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-// Clicking links counts as activity.
-// We track both real <a> clicks and SPA navigations (pushState / hash changes)
-// since many apps like Gmail use divs with JS handlers instead of real links.
-let clickTimeout = null;
-document.addEventListener("click", (e) => {
-  if (!e.target.closest("a")) return;
-  if (!clickTimeout) {
-    safeSendMessage({ type: "click" });
-    clickTimeout = setTimeout(() => { clickTimeout = null; }, 2000);
-  }
-});
+// Link click detection is handled by background.js webNavigation API.
+// The content script only needs to detect URL changes for SPA apps.
 
 // Detect SPA navigations (pushState/replaceState/hashchange) as link activity
 let lastUrl = location.href;
