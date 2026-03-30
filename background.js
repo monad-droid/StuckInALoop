@@ -268,7 +268,7 @@ chrome.webNavigation.onCommitted.addListener((details) => {
 });
 // SPA navigations (pushState/replaceState) don't fire onCommitted
 chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
-  if (config.navResetsTimer || config.clickResetsTimer) {
+  if (config.navResetsTimer) {
     handleNavigation(details);
   }
 });
@@ -300,7 +300,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ ok: true });
   } else if (message.type === "urlChange") {
     // SPA navigation (pushState/replaceState/hashchange) detected by content script
-    if (config.navResetsTimer || config.clickResetsTimer) {
+    if (config.navResetsTimer) {
       if (state.pausedForVideo) {
         state.lastTypingTime = Date.now();
         state.pausedAt = Date.now();
