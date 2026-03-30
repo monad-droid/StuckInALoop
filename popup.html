@@ -78,15 +78,6 @@
     }
     .header-divider { background: #e2e8f0; height: 1px; width: 100%; }
 
-    /* Gen Z Mode — ON = lowercase everything */
-    #zoomer-toggle.active {
-      background: #000666;
-      color: #fff;
-    }
-    body.genz-mode * {
-      text-transform: none !important;
-    }
-
     /* Main */
     main { padding: 16px 20px; }
     main > * + * { margin-top: 24px; }
@@ -503,12 +494,9 @@
 
     <!-- Configuration -->
     <section>
-      <div class="section-header" style="justify-content: space-between;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span class="material-symbols-outlined icon">tune</span>
-          <h3>Configuration</h3>
-        </div>
-        <button class="config-badge" id="zoomer-toggle" style="cursor:pointer;border:none;transition:all 0.15s;">gen z</button>
+      <div class="section-header">
+        <span class="material-symbols-outlined icon">tune</span>
+        <h3>Configuration</h3>
       </div>
       <div class="config-controls">
         <!-- Time inactive -->
