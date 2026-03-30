@@ -28,7 +28,7 @@ let state = {
 };
 
 // Reset stats on extension install/reload/update (but keep configs)
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(async (details) => {
   state.lastTypingTime = Date.now();
   state.notifiedAt = 0;
   state.pausedForVideo = false;
@@ -41,19 +41,21 @@ chrome.runtime.onInstalled.addListener(() => {
   });
   // Inject content script into all existing tabs so typing/click
   // detection works without requiring a page refresh.
-  // Delay slightly to ensure permissions are fully ready after install.
-  setTimeout(() => {
-    chrome.tabs.query({}, (tabs) => {
-      if (!tabs) return;
-      for (const tab of tabs) {
-        if (!tab.url || !tab.url.startsWith("http")) continue;
-        chrome.scripting.executeScript({
-          target: { tabId: tab.id },
+  // Must use async/await with per-tab try/catch so a failure on one
+  // restricted or discarded tab doesn't kill the entire loop.
+  const allTabs = await chrome.tabs.query({});
+  for (const tab of allTabs) {
+    if (tab.url && tab.url.startsWith("http")) {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id, allFrames: false },
           files: ["content.js"],
-        }).catch(() => {});
+        });
+      } catch (e) {
+        // Tab may be discarded, suspended, or restricted — skip it
       }
-    });
-  }, 500);
+    }
+  }
 });
 
 // Load persisted state and config
