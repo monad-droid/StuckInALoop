@@ -472,8 +472,8 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 // Use chrome.idle to detect when the user returns from sleep/lock/away.
-// 5-minute interval so normal browsing (reading a page) doesn't trigger it.
-chrome.idle.setDetectionInterval(300);
+// Always reset on idle→active so opening the laptop never shows a stale alert.
+chrome.idle.setDetectionInterval(60);
 chrome.idle.onStateChanged.addListener((newState) => {
   if (newState === "active" && state.enabled) {
     resetAllTimers();
