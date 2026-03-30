@@ -151,6 +151,11 @@ function validateVideoState() {
 // Track tab activations for ignored site detection and video validation
 chrome.tabs.onActivated.addListener((activeInfo) => {
   if (!state.enabled) return;
+  // Ensure content script is loaded on this tab (covers pre-install tabs)
+  chrome.scripting.executeScript({
+    target: { tabId: activeInfo.tabId },
+    files: ["content.js"],
+  }).catch(() => {});
   validateVideoState().then(() => {
     updateIgnoredSiteState();
     checkForLoop();
