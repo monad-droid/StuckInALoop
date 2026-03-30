@@ -103,16 +103,6 @@ chrome.storage.local.get(
       state.videoTabId = result.videoTabId;
     }
     state.ready = true;
-    // Inject content script into all http tabs to cover pre-install tabs
-    chrome.tabs.query({ url: ["http://*/*", "https://*/*"] }, (tabs) => {
-      if (!tabs) return;
-      for (const tab of tabs) {
-        chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          files: ["content.js"],
-        }).catch(() => {});
-      }
-    });
     // chromeUnfocusedAt is not persisted — it defaults to 0 (focused) on restart.
     // The onFocusChanged listener will set it if Chrome is actually unfocused.
     validateVideoState().then(() => {
@@ -161,11 +151,6 @@ function validateVideoState() {
 // Track tab activations for ignored site detection and video validation
 chrome.tabs.onActivated.addListener((activeInfo) => {
   if (!state.enabled) return;
-  // Ensure content script is loaded on this tab (covers pre-install tabs)
-  chrome.scripting.executeScript({
-    target: { tabId: activeInfo.tabId },
-    files: ["content.js"],
-  }).catch(() => {});
   validateVideoState().then(() => {
     updateIgnoredSiteState();
     checkForLoop();
