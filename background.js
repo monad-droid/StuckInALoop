@@ -428,6 +428,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.inactivePeriods !== undefined) {
       config.inactivePeriods = message.inactivePeriods;
       chrome.storage.local.set({ inactivePeriods: config.inactivePeriods });
+      // If we just entered an inactive period, reset the timer
+      if (isInInactivePeriod()) {
+        state.lastTypingTime = Date.now();
+        persistState();
+      }
     }
     if (message.ignoredSites !== undefined) {
       config.ignoredSites = message.ignoredSites;

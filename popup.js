@@ -307,6 +307,7 @@ function update() {
     } else if (response.isInInactivePeriod) {
       statusEl.textContent = "Inactive Period";
       statusEl.className = "state-value";
+      typingTimeEl.textContent = "0:00";
       statusSubtitle.textContent = "Monitoring paused";
     } else if (response.pausedForVideo) {
       statusEl.textContent = "Watching Video";
