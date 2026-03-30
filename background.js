@@ -22,6 +22,7 @@ let state = {
   snoozedAt: 0, // timestamp when snooze started (0 = not snoozing)
   onIgnoredSite: false, // true when active tab is on an ignored site
   ignoredSitePausedAt: 0, // timestamp when ignored-site pause started
+  ignoredSiteFrozenMs: 0, // frozen timer value to display while on ignored site
   chromeUnfocusedAt: 0, // timestamp when Chrome lost focus (0 = focused)
   ready: false, // true once persisted state has been loaded
 };
@@ -217,7 +218,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 // When navResetsTimer is on, any main-frame navigation resets the inactivity
 // timer — the user is actively browsing, not zoned out.
 function handleNavigation(details) {
-  if (!state.enabled || !config.navResetsTimer) return;
+  if (!state.enabled || !config.navResetsTimer || state.onIgnoredSite) return;
   if (details.frameId === 0) {
     state.lastTypingTime = Date.now();
     persistState();
@@ -280,8 +281,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       let timeSinceTyping = now - state.lastTypingTime;
       if (state.pausedForVideo) {
         timeSinceTyping = state.pausedAt - state.lastTypingTime;
-      } else if (state.onIgnoredSite && state.ignoredSitePausedAt > 0) {
-        timeSinceTyping = state.ignoredSitePausedAt - state.lastTypingTime;
+      } else if (state.onIgnoredSite) {
+        timeSinceTyping = state.ignoredSiteFrozenMs;
       } else if (state.chromeUnfocusedAt > 0) {
         timeSinceTyping = state.chromeUnfocusedAt - state.lastTypingTime;
       }
@@ -491,6 +492,7 @@ function resetAllTimers() {
   state.videoTabId = null;
   state.onIgnoredSite = false;
   state.ignoredSitePausedAt = 0;
+  state.ignoredSiteFrozenMs = 0;
   state.chromeUnfocusedAt = 0;
   persistState();
   scheduleLoopCheck();
@@ -553,13 +555,17 @@ function updateIgnoredSiteState() {
   getActiveTabUrl().then((url) => {
     const match = matchesIgnoredSite(url);
     if (match && !state.onIgnoredSite) {
-      // Entering an ignored site — always freeze the timer while here
+      // Entering an ignored site — freeze the timer while here
       const action = (typeof match === "string") ? "reset" : (match.action || "reset");
       state.onIgnoredSite = true;
       state.ignoredSitePausedAt = Date.now();
       if (action === "reset") {
-        // Reset to zero AND freeze — when we leave, the credit will keep it at 0
+        // Reset to zero AND freeze
+        state.ignoredSiteFrozenMs = 0;
         state.lastTypingTime = Date.now();
+      } else {
+        // Pause — save the current timer value to display while frozen
+        state.ignoredSiteFrozenMs = Date.now() - state.lastTypingTime;
       }
       persistState();
     } else if (!match && state.onIgnoredSite) {
@@ -571,6 +577,7 @@ function updateIgnoredSiteState() {
       }
       state.onIgnoredSite = false;
       state.ignoredSitePausedAt = 0;
+      state.ignoredSiteFrozenMs = 0;
       persistState();
       scheduleLoopCheck();
     }
