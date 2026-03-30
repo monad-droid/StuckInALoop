@@ -610,7 +610,7 @@ function checkForLoop() {
   if (!state.enabled || !state.ready || state.onIgnoredSite || state.chromeUnfocusedAt > 0 || isInInactivePeriod()) return;
 
   const now = Date.now();
-  const NOTIFY_COOLDOWN_MS = 2 * 60 * 1000; // don't re-notify within 2min
+  const NOTIFY_COOLDOWN_MS = Math.min(2 * 60 * 1000, config.loopThresholdMin * 60 * 1000);
   if (isInLoop() && now - state.notifiedAt > NOTIFY_COOLDOWN_MS) {
     triggerAlert();
   }
@@ -638,8 +638,8 @@ function triggerAlert() {
     requireInteraction: true,
   });
 
-  // Show overlay only on the active tab in the focused window
-  chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+  // Show overlay on all http tabs so the user always sees it
+  chrome.tabs.query({}, (tabs) => {
     if (!tabs) return;
     for (const tab of tabs) {
       if (!tab.url || !tab.url.startsWith("http")) continue;
