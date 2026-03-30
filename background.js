@@ -225,10 +225,12 @@ function handleNavigation(details) {
   }
 }
 chrome.webNavigation.onCommitted.addListener((details) => {
-  if (!state.enabled || !config.navResetsTimer) return;
-  const validTypes = ["typed", "generated", "form_submit", "link", "auto_bookmark"];
-  if (details.frameId === 0 && validTypes.includes(details.transitionType)) {
+  if (!state.enabled || details.frameId !== 0) return;
+  if (config.navResetsTimer && ["typed", "generated", "form_submit", "auto_bookmark"].includes(details.transitionType)) {
     handleNavigation(details);
+  } else if (config.clickResetsTimer && details.transitionType === "link") {
+    handleNavigation(details);
+  }
   }
 });
 // SPA navigations (pushState/replaceState) don't fire onCommitted
