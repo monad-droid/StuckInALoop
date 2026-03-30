@@ -623,12 +623,8 @@ function updateIgnoredSiteState() {
       }
       persistState();
     } else if (!match && state.onIgnoredSite) {
-      // Leaving an ignored site
-      if (state.ignoredSitePausedAt > 0) {
-        // Was pausing — credit the time
-        const pauseDuration = Date.now() - state.ignoredSitePausedAt;
-        state.lastTypingTime += pauseDuration;
-      }
+      // Leaving an ignored site — reset timer to now so it starts fresh
+      state.lastTypingTime = Date.now();
       state.onIgnoredSite = false;
       state.ignoredSitePausedAt = 0;
       state.ignoredSiteFrozenMs = 0;
