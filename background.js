@@ -281,6 +281,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       scheduleLoopCheck();
     }
     sendResponse({ ok: true });
+  } else if (message.type === "urlChange") {
+    // SPA navigation (pushState/replaceState/hashchange) detected by content script
+    if (config.navResetsTimer || config.clickResetsTimer) {
+      if (state.pausedForVideo) {
+        state.lastTypingTime = Date.now();
+        state.pausedAt = Date.now();
+      } else {
+        state.lastTypingTime = Date.now();
+      }
+      persistState();
+      scheduleLoopCheck();
+    }
+    sendResponse({ ok: true });
   } else if (message.type === "ytVideo") {
     // User navigated to a YouTube video — track the tab but don't pause yet.
     // Pause only happens when the video actually starts playing (audible).

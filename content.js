@@ -60,7 +60,7 @@ let lastUrl = location.href;
 function checkUrlChange() {
   if (location.href !== lastUrl) {
     lastUrl = location.href;
-    safeSendMessage({ type: "click" });
+    safeSendMessage({ type: "urlChange" });
   }
 }
 // Patch history methods to detect pushState/replaceState
