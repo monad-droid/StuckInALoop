@@ -527,10 +527,16 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 // Use chrome.idle to detect when the user returns from sleep/lock/away.
-// Always reset on idle→active so opening the laptop never shows a stale alert.
+// Only reset on locked→active (sleep/screenlock) to avoid resetting
+// during normal browsing when the user is just reading a page.
+let wasLocked = false;
 chrome.idle.setDetectionInterval(60);
 chrome.idle.onStateChanged.addListener((newState) => {
-  if (newState === "active" && state.enabled) {
+  if (!state.enabled) return;
+  if (newState === "locked") {
+    wasLocked = true;
+  } else if (newState === "active" && wasLocked) {
+    wasLocked = false;
     resetAllTimers();
   }
 });
@@ -659,15 +665,6 @@ function checkForLoop() {
 
   const now = Date.now();
   const thresholdMs = config.loopThresholdMin * 60 * 1000;
-  const elapsed = now - state.lastTypingTime;
-
-  // If elapsed time is way past the threshold (2x+), the user was away
-  // (laptop closed, slept, etc.) — not actually browsing. Reset silently.
-  if (elapsed > thresholdMs * 2) {
-    resetAllTimers();
-    return;
-  }
-
   const NOTIFY_COOLDOWN_MS = Math.min(2 * 60 * 1000, thresholdMs);
   if (isInLoop() && now - state.notifiedAt > NOTIFY_COOLDOWN_MS) {
     triggerAlert();
