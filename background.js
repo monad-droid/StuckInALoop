@@ -7,6 +7,7 @@ const DEFAULTS = {
   inactivePeriods: [{ start: 8, end: 17, days: [1, 2, 3, 4, 5] }], // default: don't monitor 8am–5pm, weekdays only
   ignoredSites: [], // [{domain, action: "pause"|"reset"}] — sites to skip tracking on
   chromeFocusLost: "pause", // "pause" or "reset" — what to do when Chrome loses focus
+  mouseIdleMinutes: 5, // reset timer after this many minutes of no mouse/keyboard
 };
 
 let config = { ...DEFAULTS };
@@ -71,7 +72,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
 // Load persisted state and config
 chrome.storage.local.get(
-  ["enabled", "loopThresholdMin", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "ignoredSites", "chromeFocusLost", "lastTypingTime", "notifiedAt", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId"],
+  ["enabled", "loopThresholdMin", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "ignoredSites", "chromeFocusLost", "mouseIdleMinutes", "lastTypingTime", "notifiedAt", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId"],
   (result) => {
     if (result.enabled !== undefined) {
       state.enabled = result.enabled;
@@ -99,6 +100,9 @@ chrome.storage.local.get(
     }
     if (result.chromeFocusLost !== undefined) {
       config.chromeFocusLost = result.chromeFocusLost;
+    }
+    if (result.mouseIdleMinutes !== undefined) {
+      config.mouseIdleMinutes = result.mouseIdleMinutes;
     }
     // Restore persisted state so it survives service worker restarts
     if (result.lastTypingTime) {
@@ -349,6 +353,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         inactivePeriods: config.inactivePeriods,
         ignoredSites: config.ignoredSites,
         chromeFocusLost: config.chromeFocusLost,
+        mouseIdleMinutes: config.mouseIdleMinutes,
         chromeUnfocused: state.chromeUnfocusedAt > 0,
         isInInactivePeriod: isInInactivePeriod(),
       });
@@ -491,6 +496,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       config.chromeFocusLost = message.chromeFocusLost;
       chrome.storage.local.set({ chromeFocusLost: config.chromeFocusLost });
     }
+    if (message.mouseIdleMinutes !== undefined) {
+      config.mouseIdleMinutes = Math.max(1, Math.min(30, message.mouseIdleMinutes));
+      chrome.storage.local.set({ mouseIdleMinutes: config.mouseIdleMinutes });
+      chrome.idle.setDetectionInterval(config.mouseIdleMinutes * 60);
+    }
     scheduleLoopCheck();
     sendResponse({ ok: true });
   }
@@ -534,17 +544,11 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
-// Use chrome.idle to detect when the user returns from sleep/lock/away.
-// Only reset on locked→active (sleep/screenlock) to avoid resetting
-// during normal browsing when the user is just reading a page.
-let wasLocked = false;
-chrome.idle.setDetectionInterval(60);
+// Detect when the user has been idle (no mouse/keyboard) for the configured
+// period and reset the timer when they return. Also catches sleep/lock.
+chrome.idle.setDetectionInterval(config.mouseIdleMinutes * 60);
 chrome.idle.onStateChanged.addListener((newState) => {
-  if (!state.enabled) return;
-  if (newState === "locked") {
-    wasLocked = true;
-  } else if (newState === "active" && wasLocked) {
-    wasLocked = false;
+  if (newState === "active" && state.enabled) {
     resetAllTimers();
   }
 });

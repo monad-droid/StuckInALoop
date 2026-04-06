@@ -8,6 +8,8 @@ const thresholdInput = document.getElementById("threshold-min");
 const thresholdBadge = document.getElementById("threshold-badge");
 const snoozeDurationInput = document.getElementById("snooze-duration");
 const snoozeBadge = document.getElementById("snooze-badge");
+const mouseIdleInput = document.getElementById("mouse-idle");
+const idleBadge = document.getElementById("idle-badge");
 const navResetsToggle = document.getElementById("nav-resets-toggle");
 const ytPauseToggle = document.getElementById("yt-pause-toggle");
 const clickResetsToggle = document.getElementById("click-resets-toggle");
@@ -251,6 +253,10 @@ function update() {
       snoozeDurationInput.max = Math.max(1, response.loopThresholdMin - 1);
       snoozeBadge.textContent = response.snoozeDurationMin + " min";
     }
+    if (document.activeElement !== mouseIdleInput) {
+      mouseIdleInput.value = response.mouseIdleMinutes;
+      idleBadge.textContent = response.mouseIdleMinutes + " min";
+    }
     setToggleState(navResetsToggle, response.navResetsTimer);
     setToggleState(ytPauseToggle, response.ytPausesTimer);
     setToggleState(clickResetsToggle, response.clickResetsTimer);
@@ -349,6 +355,14 @@ snoozeDurationInput.addEventListener("input", () => {
   snoozeBadge.textContent = snoozeDurationInput.value + " min";
 });
 snoozeDurationInput.addEventListener("change", saveConfig);
+
+// Mouse idle slider
+mouseIdleInput.addEventListener("input", () => {
+  idleBadge.textContent = mouseIdleInput.value + " min";
+});
+mouseIdleInput.addEventListener("change", () => {
+  chrome.runtime.sendMessage({ type: "setConfig", mouseIdleMinutes: parseInt(mouseIdleInput.value) });
+});
 
 // Toggle buttons
 navResetsToggle.addEventListener("click", () => {
