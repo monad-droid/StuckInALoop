@@ -545,10 +545,18 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 // Detect when the user has been idle (no mouse/keyboard) for the configured
-// period and reset the timer when they return. Also catches sleep/lock.
+// period. Pause the timer when idle, reset when they return.
 chrome.idle.setDetectionInterval(config.mouseIdleMinutes * 60);
 chrome.idle.onStateChanged.addListener((newState) => {
-  if (newState === "active" && state.enabled) {
+  if (!state.enabled) return;
+  if (newState === "idle" || newState === "locked") {
+    // User went idle — freeze the timer so it doesn't count idle time
+    state.lastTypingTime = Date.now();
+    persistState();
+    // Cancel any pending loop check
+    if (loopTimeout) clearTimeout(loopTimeout);
+  } else if (newState === "active") {
+    // User returned — reset to 0
     resetAllTimers();
   }
 });
