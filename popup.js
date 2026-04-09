@@ -297,7 +297,12 @@ function update() {
 
     const warningThreshold = response.loopThresholdMin * 0.66 * 60 * 1000;
 
-    if (response.chromeUnfocused) {
+    if (response.userIdle) {
+      statusEl.textContent = "Idle";
+      statusEl.className = "state-value";
+      statusSubtitle.textContent = "No activity detected";
+      typingTimeEl.textContent = "0:00";
+    } else if (response.chromeUnfocused) {
       statusEl.textContent = "Chrome Unfocused";
       statusEl.className = "state-value";
       if (response.chromeFocusLost === "pause") {

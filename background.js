@@ -26,6 +26,7 @@ let state = {
   ignoredSiteFrozenMs: 0, // frozen timer value to display while on ignored site
   ignoredSiteAction: "", // "pause" or "reset" — last action applied
   chromeUnfocusedAt: 0, // timestamp when Chrome lost focus (0 = focused)
+  userIdle: false, // true when user has been idle for configured period
   ready: false, // true once persisted state has been loaded
 };
 
@@ -335,6 +336,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         timeSinceTyping = state.pausedAt - state.lastTypingTime;
       } else if (state.onIgnoredSite) {
         timeSinceTyping = state.ignoredSiteFrozenMs;
+      } else if (state.userIdle) {
+        timeSinceTyping = 0; // Will reset when user returns
       } else if (state.chromeUnfocusedAt > 0) {
         timeSinceTyping = state.chromeUnfocusedAt - state.lastTypingTime;
       }
@@ -345,6 +348,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         isInLoop: isInLoop(),
         pausedForVideo: state.pausedForVideo,
         onIgnoredSite: state.onIgnoredSite,
+        userIdle: state.userIdle,
         loopThresholdMin: config.loopThresholdMin,
         snoozeDurationMin: config.snoozeDurationMin,
         navResetsTimer: config.navResetsTimer,
@@ -511,7 +515,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 let loopTimeout = null;
 function scheduleLoopCheck() {
   if (loopTimeout) clearTimeout(loopTimeout);
-  if (!state.enabled || state.pausedForVideo || state.onIgnoredSite || state.chromeUnfocusedAt > 0) return;
+  if (!state.enabled || state.pausedForVideo || state.onIgnoredSite || state.chromeUnfocusedAt > 0 || state.userIdle) return;
 
   const thresholdMs = config.loopThresholdMin * 60 * 1000;
   const elapsed = Date.now() - state.lastTypingTime;
@@ -551,11 +555,12 @@ chrome.idle.onStateChanged.addListener((newState) => {
   if (!state.enabled) return;
   if (newState === "idle" || newState === "locked") {
     // User went idle — freeze the timer so it doesn't count idle time
+    state.userIdle = true;
     state.lastTypingTime = Date.now();
     persistState();
-    // Cancel any pending loop check
     if (loopTimeout) clearTimeout(loopTimeout);
   } else if (newState === "active") {
+    state.userIdle = false;
     // User returned — reset to 0
     resetAllTimers();
   }
@@ -575,6 +580,7 @@ function resetAllTimers() {
   state.ignoredSiteFrozenMs = 0;
   state.ignoredSiteAction = "";
   state.chromeUnfocusedAt = 0;
+  state.userIdle = false;
   persistState();
   scheduleLoopCheck();
 }
@@ -669,7 +675,7 @@ function updateIgnoredSiteState() {
 }
 
 function isInLoop() {
-  if (state.pausedForVideo || state.onIgnoredSite || state.chromeUnfocusedAt > 0 || isInInactivePeriod()) return false;
+  if (state.pausedForVideo || state.onIgnoredSite || state.chromeUnfocusedAt > 0 || state.userIdle || isInInactivePeriod()) return false;
   const now = Date.now();
   const timeSinceTyping = now - state.lastTypingTime;
   const thresholdMs = config.loopThresholdMin * 60 * 1000;
@@ -681,7 +687,7 @@ function isInLoop() {
 }
 
 function checkForLoop() {
-  if (!state.enabled || !state.ready || state.onIgnoredSite || state.chromeUnfocusedAt > 0 || isInInactivePeriod()) return;
+  if (!state.enabled || !state.ready || state.onIgnoredSite || state.chromeUnfocusedAt > 0 || state.userIdle || isInInactivePeriod()) return;
 
   const now = Date.now();
   const thresholdMs = config.loopThresholdMin * 60 * 1000;
