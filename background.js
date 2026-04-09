@@ -125,6 +125,8 @@ chrome.storage.local.get(
       state.videoTabId = result.videoTabId;
     }
     state.ready = true;
+    // Update idle detection interval with the loaded config value
+    chrome.idle.setDetectionInterval(config.mouseIdleMinutes * 60);
     // chromeUnfocusedAt is not persisted — it defaults to 0 (focused) on restart.
     // The onFocusChanged listener will set it if Chrome is actually unfocused.
     validateVideoState().then(() => {
