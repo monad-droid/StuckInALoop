@@ -37,6 +37,26 @@ let state = {
 
 // Reset stats on extension install/reload/update (but keep configs)
 chrome.runtime.onInstalled.addListener(async (details) => {
+  // One-time notice for existing users updating to a version with the
+  // autoplay blocker: it's on by default, and without an explanation it
+  // looks like Instagram/X/Facebook/TikTok broke.
+  if (details.reason === "update") {
+    chrome.storage.local.get(["autoplayNoticeSeen"], (r) => {
+      if (r.autoplayNoticeSeen) return;
+      chrome.storage.local.set({ autoplayNoticeSeen: true });
+      chrome.notifications.create("autoplay-feature-notice", {
+        type: "basic",
+        iconUrl: "icons/icon128.png",
+        title: "New: videos no longer auto-play",
+        message: "Stuck In A Loop now pauses auto-playing videos on Instagram, X, Facebook, and TikTok. Click any video to play it, or turn this off per site in the extension popup.",
+        priority: 2,
+      });
+    });
+  } else if (details.reason === "install") {
+    // Fresh installs see the toggles from day one — no notice needed
+    chrome.storage.local.set({ autoplayNoticeSeen: true });
+  }
+
   state.lastTypingTime = Date.now();
   state.notifiedAt = 0;
   state.pausedForVideo = false;

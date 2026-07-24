@@ -444,6 +444,18 @@ function saveConfig() {
   });
 }
 
+// One-time hint explaining the new autoplay blocker
+chrome.storage.local.get(["autoplayHintSeen"], (result) => {
+  if (!result.autoplayHintSeen) {
+    const hint = document.getElementById("autoplay-hint");
+    hint.style.display = "flex";
+    document.getElementById("autoplay-hint-dismiss").addEventListener("click", () => {
+      hint.style.display = "none";
+      chrome.storage.local.set({ autoplayHintSeen: true });
+    });
+  }
+});
+
 // One-time hint for ignored websites
 chrome.storage.local.get(["ignoredSitesHintSeen"], (result) => {
   if (!result.ignoredSitesHintSeen) {
