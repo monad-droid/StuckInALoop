@@ -90,6 +90,48 @@ if (location.hostname === "www.youtube.com" || location.hostname === "youtube.co
   checkYouTubePage();
 }
 
+// Instagram Reels autoplay blocker — pauses videos that start playing
+// without a recent user gesture (i.e. scroll-triggered autoplay).
+// Clicking or pressing a key right before playback still lets it play,
+// so the user can manually start a reel.
+if (location.hostname === "www.instagram.com" || location.hostname === "instagram.com") {
+  let pauseReels = false;
+  let lastGestureTime = 0;
+  const GESTURE_WINDOW_MS = 1000;
+
+  function pauseAllPlayingVideos() {
+    document.querySelectorAll("video").forEach((v) => {
+      if (!v.paused) v.pause();
+    });
+  }
+
+  try {
+    chrome.storage.local.get(["pauseInstagramReels"], (result) => {
+      pauseReels = result.pauseInstagramReels !== undefined ? result.pauseInstagramReels : true;
+      if (pauseReels) pauseAllPlayingVideos();
+    });
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === "local" && changes.pauseInstagramReels) {
+        pauseReels = changes.pauseInstagramReels.newValue;
+        if (pauseReels) pauseAllPlayingVideos();
+      }
+    });
+  } catch (e) {
+    // Extension context invalidated — leave the blocker off
+  }
+
+  document.addEventListener("pointerdown", () => { lastGestureTime = Date.now(); }, true);
+  document.addEventListener("keydown", () => { lastGestureTime = Date.now(); }, true);
+
+  document.addEventListener("play", (e) => {
+    if (!pauseReels) return;
+    const video = e.target;
+    if (!(video instanceof HTMLVideoElement)) return;
+    if (Date.now() - lastGestureTime < GESTURE_WINDOW_MS) return; // user-initiated
+    video.pause();
+  }, true);
+}
+
 // Listen for overlay trigger from background
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "showOverlay") {

@@ -8,6 +8,7 @@ const DEFAULTS = {
   ignoredSites: [], // [{domain, action: "pause"|"reset"}] — sites to skip tracking on
   chromeFocusLost: "pause", // "pause" or "reset" — what to do when Chrome loses focus
   mouseIdleMinutes: 5, // reset timer after this many minutes of no mouse/keyboard
+  pauseInstagramReels: true, // block Instagram reels/videos from auto-playing
 };
 
 let config = { ...DEFAULTS };
@@ -73,7 +74,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
 // Load persisted state and config
 chrome.storage.local.get(
-  ["enabled", "loopThresholdMin", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "ignoredSites", "chromeFocusLost", "mouseIdleMinutes", "lastTypingTime", "notifiedAt", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId"],
+  ["enabled", "loopThresholdMin", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "ignoredSites", "chromeFocusLost", "mouseIdleMinutes", "pauseInstagramReels", "lastTypingTime", "notifiedAt", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId"],
   (result) => {
     if (result.enabled !== undefined) {
       state.enabled = result.enabled;
@@ -104,6 +105,9 @@ chrome.storage.local.get(
     }
     if (result.mouseIdleMinutes !== undefined) {
       config.mouseIdleMinutes = result.mouseIdleMinutes;
+    }
+    if (result.pauseInstagramReels !== undefined) {
+      config.pauseInstagramReels = result.pauseInstagramReels;
     }
     // Restore persisted state so it survives service worker restarts
     if (result.lastTypingTime) {
@@ -360,6 +364,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         ignoredSites: config.ignoredSites,
         chromeFocusLost: config.chromeFocusLost,
         mouseIdleMinutes: config.mouseIdleMinutes,
+        pauseInstagramReels: config.pauseInstagramReels,
         chromeUnfocused: state.chromeUnfocusedAt > 0,
         isInInactivePeriod: isInInactivePeriod(),
       });
@@ -506,6 +511,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       config.mouseIdleMinutes = Math.max(1, Math.min(30, message.mouseIdleMinutes));
       chrome.storage.local.set({ mouseIdleMinutes: config.mouseIdleMinutes });
       chrome.idle.setDetectionInterval(config.mouseIdleMinutes * 60);
+    }
+    if (message.pauseInstagramReels !== undefined) {
+      config.pauseInstagramReels = message.pauseInstagramReels;
+      // Content scripts on instagram.com watch this key via storage.onChanged
+      chrome.storage.local.set({ pauseInstagramReels: config.pauseInstagramReels });
     }
     scheduleLoopCheck();
     sendResponse({ ok: true });
