@@ -100,6 +100,7 @@ const AUTOPLAY_BLOCK_SITES = {
   "x.com": "pauseXVideos",
   "twitter.com": "pauseXVideos",
   "facebook.com": "pauseFacebookVideos",
+  "tiktok.com": "pauseTikTokVideos",
 };
 const autoplayBlockKey = (() => {
   for (const domain in AUTOPLAY_BLOCK_SITES) {

@@ -11,6 +11,7 @@ const DEFAULTS = {
   pauseInstagramReels: true, // block Instagram reels/videos from auto-playing
   pauseXVideos: true, // block X/Twitter videos from auto-playing
   pauseFacebookVideos: true, // block Facebook videos/reels from auto-playing
+  pauseTikTokVideos: true, // block TikTok videos from auto-playing
 };
 
 let config = { ...DEFAULTS };
@@ -77,7 +78,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
 // Load persisted state and config
 chrome.storage.local.get(
-  ["enabled", "loopThresholdMin", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "ignoredSites", "chromeFocusLost", "mouseIdleMinutes", "pauseInstagramReels", "pauseXVideos", "pauseFacebookVideos", "lastTypingTime", "notifiedAt", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId", "lastHeartbeat"],
+  ["enabled", "loopThresholdMin", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "ignoredSites", "chromeFocusLost", "mouseIdleMinutes", "pauseInstagramReels", "pauseXVideos", "pauseFacebookVideos", "pauseTikTokVideos", "lastTypingTime", "notifiedAt", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId", "lastHeartbeat"],
   (result) => {
     if (result.enabled !== undefined) {
       state.enabled = result.enabled;
@@ -117,6 +118,9 @@ chrome.storage.local.get(
     }
     if (result.pauseFacebookVideos !== undefined) {
       config.pauseFacebookVideos = result.pauseFacebookVideos;
+    }
+    if (result.pauseTikTokVideos !== undefined) {
+      config.pauseTikTokVideos = result.pauseTikTokVideos;
     }
     // Restore persisted state so it survives service worker restarts
     if (result.lastTypingTime) {
@@ -384,6 +388,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         pauseInstagramReels: config.pauseInstagramReels,
         pauseXVideos: config.pauseXVideos,
         pauseFacebookVideos: config.pauseFacebookVideos,
+        pauseTikTokVideos: config.pauseTikTokVideos,
         chromeUnfocused: state.chromeUnfocusedAt > 0,
         isInInactivePeriod: isInInactivePeriod(),
       });
@@ -535,6 +540,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.pauseFacebookVideos !== undefined) {
       config.pauseFacebookVideos = message.pauseFacebookVideos;
       chrome.storage.local.set({ pauseFacebookVideos: config.pauseFacebookVideos });
+    }
+    if (message.pauseTikTokVideos !== undefined) {
+      config.pauseTikTokVideos = message.pauseTikTokVideos;
+      chrome.storage.local.set({ pauseTikTokVideos: config.pauseTikTokVideos });
     }
     scheduleLoopCheck();
     sendResponse({ ok: true });

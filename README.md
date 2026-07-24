@@ -36,6 +36,7 @@ All configurable from the popup:
 | Pause Instagram Reels autoplay | On | Blocks Instagram reels/videos from auto-playing — click a video to play it |
 | Pause X video autoplay | On | Same, for videos and GIFs on x.com / twitter.com |
 | Pause Facebook video autoplay | On | Same, for Facebook feed videos and reels |
+| Pause TikTok video autoplay | On | Same, for TikTok videos |
 
 ## What Resets the Timer
 
