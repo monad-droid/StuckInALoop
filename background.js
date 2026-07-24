@@ -9,6 +9,8 @@ const DEFAULTS = {
   chromeFocusLost: "pause", // "pause" or "reset" — what to do when Chrome loses focus
   mouseIdleMinutes: 5, // reset timer after this many minutes of no mouse/keyboard
   pauseInstagramReels: true, // block Instagram reels/videos from auto-playing
+  pauseXVideos: true, // block X/Twitter videos from auto-playing
+  pauseFacebookVideos: true, // block Facebook videos/reels from auto-playing
 };
 
 let config = { ...DEFAULTS };
@@ -75,7 +77,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
 // Load persisted state and config
 chrome.storage.local.get(
-  ["enabled", "loopThresholdMin", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "ignoredSites", "chromeFocusLost", "mouseIdleMinutes", "pauseInstagramReels", "lastTypingTime", "notifiedAt", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId", "lastHeartbeat"],
+  ["enabled", "loopThresholdMin", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "ignoredSites", "chromeFocusLost", "mouseIdleMinutes", "pauseInstagramReels", "pauseXVideos", "pauseFacebookVideos", "lastTypingTime", "notifiedAt", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId", "lastHeartbeat"],
   (result) => {
     if (result.enabled !== undefined) {
       state.enabled = result.enabled;
@@ -109,6 +111,12 @@ chrome.storage.local.get(
     }
     if (result.pauseInstagramReels !== undefined) {
       config.pauseInstagramReels = result.pauseInstagramReels;
+    }
+    if (result.pauseXVideos !== undefined) {
+      config.pauseXVideos = result.pauseXVideos;
+    }
+    if (result.pauseFacebookVideos !== undefined) {
+      config.pauseFacebookVideos = result.pauseFacebookVideos;
     }
     // Restore persisted state so it survives service worker restarts
     if (result.lastTypingTime) {
@@ -374,6 +382,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         chromeFocusLost: config.chromeFocusLost,
         mouseIdleMinutes: config.mouseIdleMinutes,
         pauseInstagramReels: config.pauseInstagramReels,
+        pauseXVideos: config.pauseXVideos,
+        pauseFacebookVideos: config.pauseFacebookVideos,
         chromeUnfocused: state.chromeUnfocusedAt > 0,
         isInInactivePeriod: isInInactivePeriod(),
       });
@@ -513,10 +523,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       chrome.storage.local.set({ mouseIdleMinutes: config.mouseIdleMinutes });
       chrome.idle.setDetectionInterval(config.mouseIdleMinutes * 60);
     }
+    // Content scripts on the matching sites watch these keys via storage.onChanged
     if (message.pauseInstagramReels !== undefined) {
       config.pauseInstagramReels = message.pauseInstagramReels;
-      // Content scripts on instagram.com watch this key via storage.onChanged
       chrome.storage.local.set({ pauseInstagramReels: config.pauseInstagramReels });
+    }
+    if (message.pauseXVideos !== undefined) {
+      config.pauseXVideos = message.pauseXVideos;
+      chrome.storage.local.set({ pauseXVideos: config.pauseXVideos });
+    }
+    if (message.pauseFacebookVideos !== undefined) {
+      config.pauseFacebookVideos = message.pauseFacebookVideos;
+      chrome.storage.local.set({ pauseFacebookVideos: config.pauseFacebookVideos });
     }
     scheduleLoopCheck();
     sendResponse({ ok: true });

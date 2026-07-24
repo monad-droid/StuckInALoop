@@ -13,6 +13,8 @@ const idleBadge = document.getElementById("idle-badge");
 const navResetsToggle = document.getElementById("nav-resets-toggle");
 const ytPauseToggle = document.getElementById("yt-pause-toggle");
 const igReelsToggle = document.getElementById("ig-reels-toggle");
+const xVideosToggle = document.getElementById("x-videos-toggle");
+const fbVideosToggle = document.getElementById("fb-videos-toggle");
 const clickResetsToggle = document.getElementById("click-resets-toggle");
 const chromeFocusToggle = document.getElementById("chrome-focus-toggle");
 const inactiveList = document.getElementById("inactive-periods-list");
@@ -261,6 +263,8 @@ function update() {
     setToggleState(navResetsToggle, response.navResetsTimer);
     setToggleState(ytPauseToggle, response.ytPausesTimer);
     setToggleState(igReelsToggle, response.pauseInstagramReels);
+    setToggleState(xVideosToggle, response.pauseXVideos);
+    setToggleState(fbVideosToggle, response.pauseFacebookVideos);
     setToggleState(clickResetsToggle, response.clickResetsTimer);
 
     // Sync Chrome focus setting
@@ -386,6 +390,16 @@ igReelsToggle.addEventListener("click", () => {
   const isOn = igReelsToggle.classList.contains("on");
   setToggleState(igReelsToggle, !isOn);
   chrome.runtime.sendMessage({ type: "setConfig", pauseInstagramReels: !isOn });
+});
+xVideosToggle.addEventListener("click", () => {
+  const isOn = xVideosToggle.classList.contains("on");
+  setToggleState(xVideosToggle, !isOn);
+  chrome.runtime.sendMessage({ type: "setConfig", pauseXVideos: !isOn });
+});
+fbVideosToggle.addEventListener("click", () => {
+  const isOn = fbVideosToggle.classList.contains("on");
+  setToggleState(fbVideosToggle, !isOn);
+  chrome.runtime.sendMessage({ type: "setConfig", pauseFacebookVideos: !isOn });
 });
 clickResetsToggle.addEventListener("click", () => {
   const isOn = clickResetsToggle.classList.contains("on");

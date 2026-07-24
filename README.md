@@ -34,6 +34,8 @@ All configurable from the popup:
 | URL bar typing resets timer | On | Searching or navigating via the address bar counts as engagement |
 | Pause when YouTube is playing | On | Pauses the timer while a video is audibly playing |
 | Pause Instagram Reels autoplay | On | Blocks Instagram reels/videos from auto-playing — click a video to play it |
+| Pause X video autoplay | On | Same, for videos and GIFs on x.com / twitter.com |
+| Pause Facebook video autoplay | On | Same, for Facebook feed videos and reels |
 
 ## What Resets the Timer
 

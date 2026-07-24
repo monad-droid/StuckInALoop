@@ -90,12 +90,28 @@ if (location.hostname === "www.youtube.com" || location.hostname === "youtube.co
   checkYouTubePage();
 }
 
-// Instagram Reels autoplay blocker — pauses videos that start playing
+// Social video autoplay blocker — pauses videos that start playing
 // without a recent user gesture (i.e. scroll-triggered autoplay).
 // Clicking or pressing a key right before playback still lets it play,
-// so the user can manually start a reel.
-if (location.hostname === "www.instagram.com" || location.hostname === "instagram.com") {
-  let pauseReels = false;
+// so the user can manually start a video.
+// Each site is controlled by its own storage key / popup toggle.
+const AUTOPLAY_BLOCK_SITES = {
+  "instagram.com": "pauseInstagramReels",
+  "x.com": "pauseXVideos",
+  "twitter.com": "pauseXVideos",
+  "facebook.com": "pauseFacebookVideos",
+};
+const autoplayBlockKey = (() => {
+  for (const domain in AUTOPLAY_BLOCK_SITES) {
+    if (location.hostname === domain || location.hostname.endsWith("." + domain)) {
+      return AUTOPLAY_BLOCK_SITES[domain];
+    }
+  }
+  return null;
+})();
+
+if (autoplayBlockKey) {
+  let pauseAutoplay = false;
   let lastGestureTime = 0;
   const GESTURE_WINDOW_MS = 1000;
 
@@ -106,14 +122,14 @@ if (location.hostname === "www.instagram.com" || location.hostname === "instagra
   }
 
   try {
-    chrome.storage.local.get(["pauseInstagramReels"], (result) => {
-      pauseReels = result.pauseInstagramReels !== undefined ? result.pauseInstagramReels : true;
-      if (pauseReels) pauseAllPlayingVideos();
+    chrome.storage.local.get([autoplayBlockKey], (result) => {
+      pauseAutoplay = result[autoplayBlockKey] !== undefined ? result[autoplayBlockKey] : true;
+      if (pauseAutoplay) pauseAllPlayingVideos();
     });
     chrome.storage.onChanged.addListener((changes, area) => {
-      if (area === "local" && changes.pauseInstagramReels) {
-        pauseReels = changes.pauseInstagramReels.newValue;
-        if (pauseReels) pauseAllPlayingVideos();
+      if (area === "local" && changes[autoplayBlockKey]) {
+        pauseAutoplay = changes[autoplayBlockKey].newValue;
+        if (pauseAutoplay) pauseAllPlayingVideos();
       }
     });
   } catch (e) {
@@ -124,7 +140,7 @@ if (location.hostname === "www.instagram.com" || location.hostname === "instagra
   document.addEventListener("keydown", () => { lastGestureTime = Date.now(); }, true);
 
   document.addEventListener("play", (e) => {
-    if (!pauseReels) return;
+    if (!pauseAutoplay) return;
     const video = e.target;
     if (!(video instanceof HTMLVideoElement)) return;
     if (Date.now() - lastGestureTime < GESTURE_WINDOW_MS) return; // user-initiated
