@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Stuck In A Loop",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Detects when you're mindlessly switching tabs or scrolling and snaps you out of it.",
   "permissions": [
     "tabs",
