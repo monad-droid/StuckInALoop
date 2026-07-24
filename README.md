@@ -41,6 +41,7 @@ All configurable from the popup:
 - Typing a URL or search query in the address bar
 - Clicking "Got it, refocusing" on the alert overlay
 - A YouTube video starting to play (pauses + resets)
+- Waking the computer from sleep, or returning after being idle (starts fresh — sleep/away time never counts as inactivity)
 
 ## What Doesn't Reset the Timer
 

@@ -28,6 +28,7 @@ let state = {
   ignoredSiteAction: "", // "pause" or "reset" — last action applied
   chromeUnfocusedAt: 0, // timestamp when Chrome lost focus (0 = focused)
   userIdle: false, // true when user has been idle for configured period
+  lastHeartbeat: 0, // last time the loopCheck alarm ran (sleep/wake detection)
   ready: false, // true once persisted state has been loaded
 };
 
@@ -38,7 +39,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   state.pausedForVideo = false;
   state.pausedAt = 0;
   state.videoTabId = null;
-  chrome.storage.local.remove(["lastHeartbeat", "tabSwitches", "minTabSwitches", "chromeUnfocusedAt", "declinedIgnoreSites"]);
+  chrome.storage.local.remove(["tabSwitches", "minTabSwitches", "chromeUnfocusedAt", "declinedIgnoreSites"]);
   chrome.storage.local.set({
     lastTypingTime: state.lastTypingTime,
     notifiedAt: state.notifiedAt,
@@ -74,7 +75,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
 // Load persisted state and config
 chrome.storage.local.get(
-  ["enabled", "loopThresholdMin", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "ignoredSites", "chromeFocusLost", "mouseIdleMinutes", "pauseInstagramReels", "lastTypingTime", "notifiedAt", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId"],
+  ["enabled", "loopThresholdMin", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "ignoredSites", "chromeFocusLost", "mouseIdleMinutes", "pauseInstagramReels", "lastTypingTime", "notifiedAt", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId", "lastHeartbeat"],
   (result) => {
     if (result.enabled !== undefined) {
       state.enabled = result.enabled;
@@ -128,14 +129,22 @@ chrome.storage.local.get(
     if (result.videoTabId != null) {
       state.videoTabId = result.videoTabId;
     }
-    state.ready = true;
+    if (result.lastHeartbeat) {
+      state.lastHeartbeat = result.lastHeartbeat;
+    }
     // Update idle detection interval with the loaded config value
     chrome.idle.setDetectionInterval(config.mouseIdleMinutes * 60);
     // chromeUnfocusedAt is not persisted — it defaults to 0 (focused) on restart.
     // The onFocusChanged listener will set it if Chrome is actually unfocused.
-    validateVideoState().then(() => {
-      checkForLoop();
-      scheduleLoopCheck();
+    // userIdle is in-memory only, so a service worker restart while the user
+    // is away would lose it — query the real idle state before checking.
+    chrome.idle.queryState(config.mouseIdleMinutes * 60, (idleState) => {
+      state.userIdle = idleState === "idle" || idleState === "locked";
+      state.ready = true;
+      validateVideoState().then(() => {
+        checkForLoop();
+        scheduleLoopCheck();
+      });
     });
   }
 );
@@ -415,11 +424,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     persistState();
     scheduleLoopCheck();
     // Dismiss overlay in ALL tabs, not just the one that clicked
-    chrome.tabs.query({ url: ["http://*/*", "https://*/*"] }, (tabs) => {
-      for (const tab of tabs) {
-        chrome.tabs.sendMessage(tab.id, { type: "dismissOverlay" }).catch(() => {});
-      }
-    });
+    dismissAllOverlays();
     sendResponse({ ok: true });
   } else if (message.type === "snooze") {
     // User snoozed — re-fire after snoozeDurationMin
@@ -436,11 +441,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     persistState();
     scheduleLoopCheck();
     // Dismiss overlay in ALL tabs
-    chrome.tabs.query({ url: ["http://*/*", "https://*/*"] }, (tabs) => {
-      for (const tab of tabs) {
-        chrome.tabs.sendMessage(tab.id, { type: "dismissOverlay" }).catch(() => {});
-      }
-    });
+    dismissAllOverlays();
     sendResponse({ ok: true });
   } else if (message.type === "setConfig") {
     if (message.loopThresholdMin !== undefined) {
@@ -543,12 +544,33 @@ function scheduleLoopCheck() {
   }
 }
 
+// The loopCheck alarm fires every 30s while the machine is awake. A much
+// larger gap since the last heartbeat means the system was asleep or
+// suspended — that time is not "inactivity" and must not trigger an alert.
+const SLEEP_GAP_MS = 2 * 60 * 1000;
+
+function wokeFromSleep() {
+  return state.lastHeartbeat > 0 && Date.now() - state.lastHeartbeat > SLEEP_GAP_MS;
+}
+
+function recordHeartbeat() {
+  state.lastHeartbeat = Date.now();
+  chrome.storage.local.set({ lastHeartbeat: state.lastHeartbeat });
+}
+
 // Backup alarm in case the service worker restarts and loses the timeout.
 // Also detects when an inactive period ends and resets the timer.
 let wasInInactivePeriod = false;
 chrome.alarms.create("loopCheck", { periodInMinutes: 0.5 });
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === "loopCheck" && state.enabled) {
+  if (alarm.name !== "loopCheck" || !state.ready) return;
+  const slept = wokeFromSleep();
+  recordHeartbeat();
+  if (slept) {
+    resetAllTimers();
+    return;
+  }
+  if (state.enabled) {
     const inInactive = isInInactivePeriod();
     if (wasInInactivePeriod && !inInactive) {
       // Just exited an inactive period — start fresh
@@ -578,6 +600,17 @@ chrome.idle.onStateChanged.addListener((newState) => {
   }
 });
 
+// Remove the alert overlay from every tab (e.g. one left over from before
+// the machine slept or the user went idle).
+function dismissAllOverlays() {
+  chrome.tabs.query({ url: ["http://*/*", "https://*/*"] }, (tabs) => {
+    if (!tabs) return;
+    for (const tab of tabs) {
+      chrome.tabs.sendMessage(tab.id, { type: "dismissOverlay" }).catch(() => {});
+    }
+  });
+}
+
 // Reset all timers to now — used on wake from sleep, idle→active, etc.
 function resetAllTimers() {
   state.lastTypingTime = Date.now();
@@ -594,6 +627,7 @@ function resetAllTimers() {
   state.chromeUnfocusedAt = 0;
   state.userIdle = false;
   persistState();
+  dismissAllOverlays();
   scheduleLoopCheck();
 }
 
@@ -699,7 +733,15 @@ function isInLoop() {
 }
 
 function checkForLoop() {
-  if (!state.enabled || !state.ready || state.onIgnoredSite || state.chromeUnfocusedAt > 0 || state.userIdle || isInInactivePeriod()) return;
+  if (!state.enabled || !state.ready) return;
+  if (wokeFromSleep()) {
+    // The machine just woke from sleep — elapsed time was sleep, not
+    // inactivity. Start fresh instead of alerting.
+    recordHeartbeat();
+    resetAllTimers();
+    return;
+  }
+  if (state.onIgnoredSite || state.chromeUnfocusedAt > 0 || state.userIdle || isInInactivePeriod()) return;
 
   const now = Date.now();
   const thresholdMs = config.loopThresholdMin * 60 * 1000;
