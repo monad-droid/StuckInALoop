@@ -70,7 +70,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   state.pausedForVideo = false;
   state.pausedAt = 0;
   state.videoTabId = null;
-  chrome.storage.local.remove(["tabSwitches", "minTabSwitches", "chromeUnfocusedAt", "declinedIgnoreSites"]);
+  chrome.storage.local.remove(["tabSwitches", "minTabSwitches", "declinedIgnoreSites"]);
   chrome.storage.local.set({
     lastTypingTime: state.lastTypingTime,
     notifiedAt: state.notifiedAt,
@@ -106,7 +106,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
 // Load persisted state and config
 chrome.storage.local.get(
-  ["enabled", "loopThresholdMin", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "ignoredSites", "chromeFocusLost", "mouseIdleMinutes", "pauseInstagramReels", "pauseXVideos", "pauseFacebookVideos", "pauseTikTokVideos", "lastTypingTime", "notifiedAt", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId", "lastHeartbeat"],
+  ["enabled", "loopThresholdMin", "snoozeDurationMin", "navResetsTimer", "ytPausesTimer", "clickResetsTimer", "inactivePeriods", "ignoredSites", "chromeFocusLost", "mouseIdleMinutes", "pauseInstagramReels", "pauseXVideos", "pauseFacebookVideos", "pauseTikTokVideos", "lastTypingTime", "notifiedAt", "snoozedAt", "pausedForVideo", "pausedAt", "videoTabId", "lastHeartbeat", "chromeUnfocusedAt"],
   (result) => {
     if (result.enabled !== undefined) {
       state.enabled = result.enabled;
@@ -172,19 +172,41 @@ chrome.storage.local.get(
     if (result.lastHeartbeat) {
       state.lastHeartbeat = result.lastHeartbeat;
     }
+    if (result.chromeUnfocusedAt) {
+      state.chromeUnfocusedAt = result.chromeUnfocusedAt;
+    }
     // Update idle detection interval with the loaded config value
     chrome.idle.setDetectionInterval(config.mouseIdleMinutes * 60);
-    // chromeUnfocusedAt is not persisted — it defaults to 0 (focused) on restart.
-    // The onFocusChanged listener will set it if Chrome is actually unfocused.
-    // userIdle is in-memory only, so a service worker restart while the user
-    // is away would lose it — query the real idle state before checking.
-    chrome.idle.queryState(config.mouseIdleMinutes * 60, (idleState) => {
-      state.userIdle = idleState === "idle" || idleState === "locked";
-      state.ready = true;
-      configLoadedResolve();
-      validateVideoState().then(() => {
-        checkForLoop();
-        scheduleLoopCheck();
+    // The service worker restarts constantly, losing in-memory focus/idle
+    // state. Reconcile against the browser's real state: otherwise a worker
+    // that restarts while the browser is in the background thinks it is
+    // focused and counts the whole away stretch as inactivity.
+    chrome.windows.getLastFocused({}, (win) => {
+      const browserFocused = !chrome.runtime.lastError && !!(win && win.focused);
+      if (browserFocused && state.chromeUnfocusedAt > 0) {
+        // Refocus happened while the worker was down — apply the configured action
+        if (config.chromeFocusLost === "reset") {
+          state.chromeUnfocusedAt = 0;
+          resetAllTimers();
+        } else {
+          state.lastTypingTime += Date.now() - state.chromeUnfocusedAt;
+          state.chromeUnfocusedAt = 0;
+          persistState();
+        }
+      } else if (!browserFocused && state.chromeUnfocusedAt === 0) {
+        // Browser is unfocused right now but we never recorded it
+        state.chromeUnfocusedAt = Date.now();
+        persistState();
+      }
+      // userIdle is in-memory only — query the real idle state before checking
+      chrome.idle.queryState(config.mouseIdleMinutes * 60, (idleState) => {
+        state.userIdle = idleState === "idle" || idleState === "locked";
+        state.ready = true;
+        configLoadedResolve();
+        validateVideoState().then(() => {
+          checkForLoop();
+          scheduleLoopCheck();
+        });
       });
     });
   }
@@ -199,6 +221,7 @@ function persistState() {
     pausedForVideo: state.pausedForVideo,
     pausedAt: state.pausedAt,
     videoTabId: state.videoTabId,
+    chromeUnfocusedAt: state.chromeUnfocusedAt,
   });
 }
 
@@ -274,8 +297,13 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
-// Track window focus changes (switching between browser windows or apps)
+// Track window focus changes (switching between browser windows or apps).
+// A focus change is often the event that wakes the service worker, so wait
+// for persisted state to load before handling it.
 chrome.windows.onFocusChanged.addListener((windowId) => {
+  configLoaded.then(() => handleFocusChange(windowId));
+});
+function handleFocusChange(windowId) {
   if (!state.enabled) return;
   if (windowId === chrome.windows.WINDOW_ID_NONE) {
     // Chrome lost focus to another application
@@ -299,7 +327,7 @@ chrome.windows.onFocusChanged.addListener((windowId) => {
       }
     }
   }
-});
+}
 
 // If the video tab is closed while paused, unpause
 chrome.tabs.onRemoved.addListener((tabId) => {
