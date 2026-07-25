@@ -25,6 +25,10 @@ const addSiteInput = document.getElementById("add-site-input");
 const addSiteBtn = document.getElementById("add-site-btn");
 
 let currentEnabled = true;
+// True once we've received real state from the background. Until then the
+// local lists hold placeholder defaults and must never be saved, or they
+// would overwrite the user's stored config.
+let stateSynced = false;
 let currentInactivePeriods = [{ start: 8, end: 17, days: [1, 2, 3, 4, 5] }];
 let currentIgnoredSites = []; // [{domain, action: "pause"|"reset"}]
 let currentChromeFocusLost = "pause";
@@ -150,6 +154,7 @@ function renderInactivePeriods() {
 }
 
 function saveInactivePeriods() {
+  if (!stateSynced) return;
   chrome.runtime.sendMessage({ type: "setConfig", inactivePeriods: currentInactivePeriods });
 }
 
@@ -217,6 +222,7 @@ function setIgnoredSiteAction(idx, action) {
 }
 
 function saveIgnoredSites() {
+  if (!stateSynced) return;
   chrome.runtime.sendMessage({ type: "setConfig", ignoredSites: currentIgnoredSites });
 }
 
@@ -292,6 +298,9 @@ function update() {
         renderIgnoredSites();
       }
     }
+
+    // Real state received — list edits may be saved from now on
+    stateSynced = true;
 
     if (!response.enabled) {
       statusEl.textContent = "Off";

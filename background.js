@@ -16,6 +16,14 @@ const DEFAULTS = {
 
 let config = { ...DEFAULTS };
 
+// Resolves once persisted config/state has been loaded from storage.
+// getState and config writes MUST wait for this: the popup's first message
+// usually arrives before the async storage load finishes, and answering
+// with DEFAULTS lets the popup save an empty ignoredSites/inactivePeriods
+// list back over the user's real one.
+let configLoadedResolve;
+const configLoaded = new Promise((resolve) => { configLoadedResolve = resolve; });
+
 let state = {
   lastTypingTime: Date.now(),
   sessionStartTime: Date.now(), // when the current browsing session started
@@ -173,6 +181,7 @@ chrome.storage.local.get(
     chrome.idle.queryState(config.mouseIdleMinutes * 60, (idleState) => {
       state.userIdle = idleState === "idle" || idleState === "locked";
       state.ready = true;
+      configLoadedResolve();
       validateVideoState().then(() => {
         checkForLoop();
         scheduleLoopCheck();
@@ -374,8 +383,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     state.videoTabId = null;
     sendResponse({ ok: true });
   } else if (message.type === "getState") {
-    // Validate video state before responding so popup always sees current truth
-    validateVideoState().then(() => {
+    // Wait for persisted config, then validate video state, so the popup
+    // never sees (and can never save back) default placeholder config
+    configLoaded.then(() => validateVideoState()).then(() => {
       const now = Date.now();
       // If paused (video, ignored site, or Chrome unfocused), report time as frozen
       let timeSinceTyping = now - state.lastTypingTime;
@@ -414,6 +424,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
     });
   } else if (message.type === "setEnabled") {
+    configLoaded.then(() => {
     state.enabled = message.enabled;
     chrome.storage.local.set({ enabled: message.enabled });
     if (message.enabled) {
@@ -446,6 +457,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     scheduleLoopCheck();
     sendResponse({ ok: true });
+    });
   } else if (message.type === "dismiss") {
     // User acknowledged the alert — reset the typing timer but clear
     // the cooldown so the next loop can be detected fresh
@@ -479,6 +491,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     dismissAllOverlays();
     sendResponse({ ok: true });
   } else if (message.type === "setConfig") {
+    configLoaded.then(() => {
     if (message.loopThresholdMin !== undefined) {
       config.loopThresholdMin = message.loopThresholdMin;
       chrome.storage.local.set({ loopThresholdMin: config.loopThresholdMin });
@@ -567,6 +580,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     scheduleLoopCheck();
     sendResponse({ ok: true });
+    });
   }
   return true; // keep channel open for async sendResponse
 });
