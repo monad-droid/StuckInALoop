@@ -24,6 +24,29 @@
       "matches": ["<all_urls>"],
       "js": ["content.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://*.instagram.com/*",
+        "*://*.x.com/*",
+        "*://*.twitter.com/*",
+        "*://*.facebook.com/*",
+        "*://*.tiktok.com/*"
+      ],
+      "js": ["autoplay-flag.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "*://*.instagram.com/*",
+        "*://*.x.com/*",
+        "*://*.twitter.com/*",
+        "*://*.facebook.com/*",
+        "*://*.tiktok.com/*"
+      ],
+      "js": ["autoplay-blocker.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
     }
   ],
   "action": {

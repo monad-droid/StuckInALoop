@@ -90,64 +90,10 @@ if (location.hostname === "www.youtube.com" || location.hostname === "youtube.co
   checkYouTubePage();
 }
 
-// Social video autoplay blocker — pauses videos that start playing
-// without a recent user gesture (i.e. scroll-triggered autoplay).
-// Clicking or pressing a key right before playback still lets it play,
-// so the user can manually start a video.
-// Each site is controlled by its own storage key / popup toggle.
-const AUTOPLAY_BLOCK_SITES = {
-  "instagram.com": "pauseInstagramReels",
-  "x.com": "pauseXVideos",
-  "twitter.com": "pauseXVideos",
-  "facebook.com": "pauseFacebookVideos",
-  "tiktok.com": "pauseTikTokVideos",
-};
-const autoplayBlockKey = (() => {
-  for (const domain in AUTOPLAY_BLOCK_SITES) {
-    if (location.hostname === domain || location.hostname.endsWith("." + domain)) {
-      return AUTOPLAY_BLOCK_SITES[domain];
-    }
-  }
-  return null;
-})();
-
-if (autoplayBlockKey) {
-  let pauseAutoplay = false;
-  let lastGestureTime = 0;
-  const GESTURE_WINDOW_MS = 1000;
-
-  function pauseAllPlayingVideos() {
-    document.querySelectorAll("video").forEach((v) => {
-      if (!v.paused) v.pause();
-    });
-  }
-
-  try {
-    chrome.storage.local.get([autoplayBlockKey], (result) => {
-      pauseAutoplay = result[autoplayBlockKey] !== undefined ? result[autoplayBlockKey] : true;
-      if (pauseAutoplay) pauseAllPlayingVideos();
-    });
-    chrome.storage.onChanged.addListener((changes, area) => {
-      if (area === "local" && changes[autoplayBlockKey]) {
-        pauseAutoplay = changes[autoplayBlockKey].newValue;
-        if (pauseAutoplay) pauseAllPlayingVideos();
-      }
-    });
-  } catch (e) {
-    // Extension context invalidated — leave the blocker off
-  }
-
-  document.addEventListener("pointerdown", () => { lastGestureTime = Date.now(); }, true);
-  document.addEventListener("keydown", () => { lastGestureTime = Date.now(); }, true);
-
-  document.addEventListener("play", (e) => {
-    if (!pauseAutoplay) return;
-    const video = e.target;
-    if (!(video instanceof HTMLVideoElement)) return;
-    if (Date.now() - lastGestureTime < GESTURE_WINDOW_MS) return; // user-initiated
-    video.pause();
-  }, true);
-}
+// Social video autoplay blocking lives in autoplay-blocker.js (MAIN world)
+// gated by autoplay-flag.js (isolated world) — see those files. It must NOT
+// also be implemented here: two independent gesture trackers can disagree,
+// which made this script fight the site's player (rapid play/pause flicker).
 
 // Listen for overlay trigger from background
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

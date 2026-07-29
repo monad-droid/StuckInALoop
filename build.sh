@@ -13,6 +13,8 @@ zip -r "$OUT" \
   manifest.json \
   background.js \
   content.js \
+  autoplay-flag.js \
+  autoplay-blocker.js \
   popup.html \
   popup.js \
   icons/icon16.png \
