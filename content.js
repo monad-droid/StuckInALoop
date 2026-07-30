@@ -46,7 +46,10 @@ document.addEventListener("keydown", (e) => {
 // Link click detection is handled by background.js webNavigation API.
 // The content script only needs to detect URL changes for SPA apps.
 
-// Detect SPA navigations (pushState/replaceState/hashchange) as link activity
+// Detect SPA navigations (pushState/replaceState/hashchange) as link activity.
+// NOTE: patching history.pushState here does NOT work — content scripts run in
+// an isolated world, so the page's own history calls never hit the patch.
+// Poll instead: a string compare once per second is effectively free.
 let lastUrl = location.href;
 function checkUrlChange() {
   if (location.href !== lastUrl) {
@@ -54,17 +57,7 @@ function checkUrlChange() {
     safeSendMessage({ type: "urlChange" });
   }
 }
-// Patch history methods to detect pushState/replaceState
-const origPushState = history.pushState;
-const origReplaceState = history.replaceState;
-history.pushState = function () {
-  origPushState.apply(this, arguments);
-  checkUrlChange();
-};
-history.replaceState = function () {
-  origReplaceState.apply(this, arguments);
-  checkUrlChange();
-};
+setInterval(checkUrlChange, 1000);
 window.addEventListener("popstate", checkUrlChange);
 window.addEventListener("hashchange", checkUrlChange);
 
