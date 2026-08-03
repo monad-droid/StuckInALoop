@@ -25,13 +25,27 @@
   const blocking = () => document.documentElement.dataset.stuckInLoopBlockAutoplay === "1";
   const inGestureWindow = () => Date.now() - lastGestureTime < GESTURE_WINDOW_MS;
 
+  // Videos the user deliberately started. Later play() calls on an approved
+  // element (loop restart, replay after ended, buffering recovery) are part
+  // of playback the user chose — blocking them wedges the player.
+  const approved = new WeakSet();
+  // Approval is per-content: when the element loads a different resource
+  // (feed players are recycled across posts), it must re-earn approval.
+  const unapprove = (e) => { approved.delete(e.target); };
+  window.addEventListener("loadstart", unapprove, true);
+  window.addEventListener("emptied", unapprove, true);
+
   const origPlay = HTMLMediaElement.prototype.play;
   HTMLMediaElement.prototype.play = function () {
-    if (blocking() && this instanceof HTMLVideoElement && !inGestureWindow()) {
-      return Promise.reject(new DOMException(
-        "play() can only be initiated by a user gesture.",
-        "NotAllowedError"
-      ));
+    if (blocking() && this instanceof HTMLVideoElement) {
+      if (inGestureWindow()) {
+        approved.add(this);
+      } else if (!approved.has(this)) {
+        return Promise.reject(new DOMException(
+          "play() can only be initiated by a user gesture.",
+          "NotAllowedError"
+        ));
+      }
     }
     return origPlay.apply(this, arguments);
   };
@@ -41,7 +55,8 @@
     if (!blocking()) return;
     const video = e.target;
     if (!(video instanceof HTMLVideoElement)) return;
-    if (inGestureWindow()) return; // user-initiated
+    if (inGestureWindow()) { approved.add(video); return; } // user-initiated
+    if (approved.has(video)) return; // continuation of chosen playback
     video.pause();
   }, true);
 
