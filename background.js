@@ -40,6 +40,8 @@ let state = {
   chromeUnfocusedAt: 0, // timestamp when Chrome lost focus (0 = focused)
   userIdle: false, // true when user has been idle for configured period
   lastHeartbeat: 0, // last time the loopCheck alarm ran (sleep/wake detection)
+  alertActive: false, // true from triggerAlert until dismissed/snoozed/reset
+  alertMinutes: 0, // minutes shown in the active alert
   ready: false, // true once persisted state has been loaded
 };
 
@@ -257,6 +259,8 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
     target: { tabId: activeInfo.tabId },
     files: ["content.js"],
   }).catch(() => {});
+  // An undismissed alert follows the user to whichever tab they switch to
+  if (state.alertActive) tryShowOverlay(activeInfo.tabId, state.alertMinutes);
   validateVideoState().then(() => {
     updateIgnoredSiteState();
     checkForLoop();
@@ -467,22 +471,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     state.videoTabId = null;
     persistState();
     // If re-enabling with ytPausesTimer on, check for already-audible YouTube
-    if (message.enabled && config.ytPausesTimer) {
-      chrome.tabs.query({ audible: true }, (tabs) => {
-        if (!tabs) return;
-        for (const tab of tabs) {
-          const url = tab.url || "";
-          if ((url.includes("youtube.com/watch") || url.includes("youtube.com/shorts/")) && !state.pausedForVideo) {
-            state.lastTypingTime = Date.now();
-            state.pausedForVideo = true;
-            state.pausedAt = Date.now();
-            state.videoTabId = tab.id;
-            persistState();
-            break;
-          }
-        }
-      });
-    }
+    rePauseForPlayingVideo();
     scheduleLoopCheck();
     sendResponse({ ok: true });
     });
@@ -499,6 +488,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     persistState();
     scheduleLoopCheck();
     // Dismiss overlay in ALL tabs, not just the one that clicked
+    state.alertActive = false;
     dismissAllOverlays();
     sendResponse({ ok: true });
   } else if (message.type === "snooze") {
@@ -516,6 +506,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     persistState();
     scheduleLoopCheck();
     // Dismiss overlay in ALL tabs
+    state.alertActive = false;
     dismissAllOverlays();
     sendResponse({ ok: true });
   } else if (message.type === "setConfig") {
@@ -546,20 +537,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         state.videoTabId = null;
       } else {
         // Turning on — check if a YouTube video is already audible
-        chrome.tabs.query({ audible: true }, (tabs) => {
-          if (!tabs) return;
-          for (const tab of tabs) {
-            const url = tab.url || "";
-            if ((url.includes("youtube.com/watch") || url.includes("youtube.com/shorts/")) && !state.pausedForVideo) {
-              state.lastTypingTime = Date.now();
-              state.pausedForVideo = true;
-              state.pausedAt = Date.now();
-              state.videoTabId = tab.id;
-              persistState();
-              break;
-            }
-          }
-        });
+        rePauseForPlayingVideo();
       }
     }
     if (message.clickResetsTimer !== undefined) {
@@ -715,9 +693,34 @@ function resetAllTimers() {
   state.ignoredSiteAction = "";
   state.chromeUnfocusedAt = 0;
   state.userIdle = false;
+  state.alertActive = false;
   persistState();
   dismissAllOverlays();
   scheduleLoopCheck();
+  // A reset clears pausedForVideo, but the video may still be playing (e.g.
+  // idle→active after 5 min of hands-off watching). Re-detect it, otherwise
+  // the timer runs for the rest of the video and fires a false alert.
+  rePauseForPlayingVideo();
+}
+
+// Enter the video pause if a YouTube video is audibly playing right now.
+// Used wherever pausedForVideo was cleared without the video stopping.
+function rePauseForPlayingVideo() {
+  if (!state.enabled || !config.ytPausesTimer || state.pausedForVideo) return;
+  chrome.tabs.query({ audible: true }, (tabs) => {
+    if (!tabs || state.pausedForVideo) return;
+    for (const tab of tabs) {
+      const url = tab.url || "";
+      if (url.includes("youtube.com/watch") || url.includes("youtube.com/shorts/")) {
+        state.lastTypingTime = Date.now();
+        state.pausedForVideo = true;
+        state.pausedAt = Date.now();
+        state.videoTabId = tab.id;
+        persistState();
+        break;
+      }
+    }
+  });
 }
 
 function unPauseVideo() {
@@ -862,8 +865,13 @@ function triggerAlert() {
     requireInteraction: true,
   });
 
-  // Show overlay on all http tabs so the user always sees it
-  chrome.tabs.query({}, (tabs) => {
+  // Show the overlay on the active tab of each window. Other tabs get it on
+  // activation (see tabs.onActivated) while the alert is active. Injecting
+  // into every tab up front raced against dismissal: tabs whose injection
+  // finished after the user dismissed showed a stale overlay later.
+  state.alertActive = true;
+  state.alertMinutes = minutes;
+  chrome.tabs.query({ active: true }, (tabs) => {
     if (!tabs) return;
     for (const tab of tabs) {
       if (!tab.url || !tab.url.startsWith("http")) continue;
@@ -879,6 +887,8 @@ function tryShowOverlay(tabId, minutes) {
   }, () => {
     if (chrome.runtime.lastError) return;
     setTimeout(() => {
+      // Dismissed while we were injecting — don't show a stale overlay
+      if (!state.alertActive) return;
       chrome.tabs.sendMessage(tabId, { type: "showOverlay", minutes, snoozeDurationMin: config.snoozeDurationMin }).catch(() => {});
     }, 200);
   });
