@@ -162,7 +162,9 @@ addPeriodBtn.addEventListener("click", () => {
   if (currentInactivePeriods.length === 0) {
     currentInactivePeriods.push({ start: 8, end: 17, days: [1, 2, 3, 4, 5] });
   } else {
-    currentInactivePeriods.push({ start: 0, end: 24, days: [0, 1, 2, 3, 4, 5, 6] });
+    // A short window the user is expected to edit. Defaulting an added
+    // period to all-day/every-day silently paused monitoring 24/7.
+    currentInactivePeriods.push({ start: 12, end: 13, days: [0, 1, 2, 3, 4, 5, 6] });
   }
   saveInactivePeriods();
   renderInactivePeriods();
@@ -338,7 +340,13 @@ function update() {
       statusEl.textContent = "Inactive Period";
       statusEl.className = "state-value";
       typingTimeEl.textContent = "0:00";
-      statusSubtitle.textContent = "Monitoring paused";
+      if (response.inactivePeriodAllDay) {
+        statusSubtitle.textContent = "Paused all day (see Inactive periods)";
+      } else if (response.inactivePeriodEnd != null) {
+        statusSubtitle.textContent = "Paused until " + formatHour(response.inactivePeriodEnd);
+      } else {
+        statusSubtitle.textContent = "Monitoring paused";
+      }
     } else if (response.pausedForVideo) {
       statusEl.textContent = "Watching Video";
       statusEl.className = "state-value";

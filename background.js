@@ -430,6 +430,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       } else if (state.chromeUnfocusedAt > 0) {
         timeSinceTyping = state.chromeUnfocusedAt - state.lastTypingTime;
       }
+      const activePeriod = currentInactivePeriod();
       sendResponse({
         enabled: state.enabled,
         timeSinceTyping,
@@ -452,7 +453,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         pauseFacebookVideos: config.pauseFacebookVideos,
         pauseTikTokVideos: config.pauseTikTokVideos,
         chromeUnfocused: state.chromeUnfocusedAt > 0,
-        isInInactivePeriod: isInInactivePeriod(),
+        isInInactivePeriod: activePeriod !== null,
+        // So the popup can say *why* monitoring is paused and until when
+        inactivePeriodEnd: activePeriod ? activePeriod.end : null,
+        inactivePeriodAllDay: activePeriod ? activePeriod.start === 0 && activePeriod.end === 24 : false,
       });
     });
   } else if (message.type === "setEnabled") {
@@ -734,13 +738,13 @@ function unPauseVideo() {
   scheduleLoopCheck();
 }
 
-// Check if the current time falls within any configured inactive period
-function isInInactivePeriod() {
-  if (!config.inactivePeriods || config.inactivePeriods.length === 0) return false;
+// Return the configured inactive period covering the current time, or null
+function currentInactivePeriod() {
+  if (!config.inactivePeriods || config.inactivePeriods.length === 0) return null;
   const now = new Date();
   const hour = now.getHours();
   const day = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-  return config.inactivePeriods.some((p) => {
+  return config.inactivePeriods.find((p) => {
     // Check day of week (default to all days for legacy periods without days)
     const days = p.days || [0, 1, 2, 3, 4, 5, 6];
     if (!days.includes(day)) return false;
@@ -749,7 +753,12 @@ function isInInactivePeriod() {
     }
     // Wraps midnight (e.g. 22–6)
     return hour >= p.start || hour < p.end;
-  });
+  }) || null;
+}
+
+// Check if the current time falls within any configured inactive period
+function isInInactivePeriod() {
+  return currentInactivePeriod() !== null;
 }
 
 // Check if a URL matches any ignored site. Returns the matching entry or null.
