@@ -177,7 +177,7 @@ function renderIgnoredSites() {
     const row = document.createElement("div");
     row.className = "ignored-site-row";
     row.innerHTML = `
-      <span>${domain}</span>
+      <span></span>
       <div class="site-action-toggle">
         <button class="site-action-pause ${action === "pause" ? "active" : ""}" data-index="${i}">Pause</button>
         <button class="site-action-reset ${action === "reset" ? "active" : ""}" data-index="${i}">Reset</button>
@@ -186,6 +186,8 @@ function renderIgnoredSites() {
         <span class="material-symbols-outlined" style="font-size:18px;">close</span>
       </button>
     `;
+    // Domain is user-entered text — render it as text, never as markup
+    row.querySelector("span").textContent = domain;
     ignoredSitesList.appendChild(row);
   });
   ignoredSitesList.querySelectorAll(".remove-site").forEach((btn) => {

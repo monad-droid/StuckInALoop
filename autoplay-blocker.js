@@ -18,7 +18,9 @@
 
   const GESTURE_WINDOW_MS = 1000;
   let lastGestureTime = 0;
-  const markGesture = () => { lastGestureTime = Date.now(); };
+  // Only trust real input: a page can dispatch synthetic pointer/key events,
+  // and must not be able to fake a "user gesture" to bypass the blocker.
+  const markGesture = (e) => { if (e.isTrusted) lastGestureTime = Date.now(); };
   window.addEventListener("pointerdown", markGesture, true);
   window.addEventListener("keydown", markGesture, true);
 

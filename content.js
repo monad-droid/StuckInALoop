@@ -37,6 +37,9 @@ function reportActivity() {
 }
 
 document.addEventListener("keydown", (e) => {
+  // Ignore synthetic events: a page could dispatch fake keystrokes to keep
+  // the timer perpetually reset and suppress loop alerts on that site
+  if (!e.isTrusted) return;
   // Only count actual content typing, not just modifier keys
   if (e.key.length === 1 || e.key === "Backspace" || e.key === "Enter") {
     reportActivity();
